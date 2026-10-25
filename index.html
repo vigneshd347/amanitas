@@ -343,7 +343,7 @@
       <div class="hero-stats">
         <div><span class="hero-stat-num">100 %</span><span class="hero-stat-lbl">Satisfaction</span></div>
         <div><span class="hero-stat-num">200+</span><span class="hero-stat-lbl">Unique Designs</span></div>
-        <div><span class="hero-stat-num">7+</span><span class="hero-stat-lbl">Years Crafting</span></div>
+        <div><span class="hero-stat-num">5★</span><span class="hero-stat-lbl">Customer Rating</span></div>
       </div>
 <!--       
   <div class="banner-dots">
@@ -607,82 +607,8 @@ window.addEventListener('scroll', () => {
   document.getElementById('mainNav')?.classList.toggle('scrolled', window.scrollY > 10);
 });
 
-// Chatbot
-const GEMINI_API_KEY = 'AIzaSyAj9yn1WlayXWVRZaimcZPALKVCNPwoo7g';
-document.addEventListener('DOMContentLoaded', () => {
-  const toggle = document.getElementById('chatbotToggle');
-  const close  = document.getElementById('chatbotClose');
-  const send   = document.getElementById('chatbotSend');
-  const input  = document.getElementById('chatbotInput');
-  const win    = document.getElementById('chatbotWindow');
-  const msgs   = document.getElementById('chatbotMessages');
-  let busy = false;
+// Note: Chatbot is disabled. JS block removed.
 
-  function addMsg(text, sender) {
-    const d = document.createElement('div');
-    d.className = `message message-${sender}`;
-    const t = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-    d.innerHTML = `<div class="message-avatar"><i class="fas ${sender==='bot'?'fa-gem':'fa-user'}"></i></div><div class="message-content">${text.replace(/\n/g,'<br>')}<span class="message-time">${t}</span></div>`;
-    msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
-  }
-
-  function showTyping() {
-    const d = document.createElement('div');
-    d.className = 'message message-bot'; d.id = 'typingInd';
-    d.innerHTML = `<div class="message-avatar"><i class="fas fa-gem"></i></div><div class="chatbot-typing"><span></span><span></span><span></span></div>`;
-    msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight; busy = true;
-  }
-  function hideTyping() { document.getElementById('typingInd')?.remove(); busy = false; }
-
-  function localReply(msg) {
-    const m = msg.toLowerCase();
-    if (m.includes('gold') && (m.includes('price') || m.includes('rate') || m.includes('today')))
-      return `📊 Today's Gold Rates (Tamil Nadu):\n\n• 24K Gold: ₹5,650/gram\n• 22K Gold: ₹5,180/gram\n\n*Prices indicative. +3% GST + making charges extra.`;
-    if (m.includes('silver'))
-      return `🥈 Silver Rate: ₹88/gram\n\n*Contact us on WhatsApp for bulk orders!`;
-    if (m.includes('22k') || m.includes('24k'))
-      return `💎 22K vs 24K:\n\n• 24K (99.9% pure): Best for investment\n• 22K (91.6% pure): Best for daily jewellery wear\n\nWe recommend 22K for jewellery!`;
-    if (m.includes('exchange') || m.includes('return'))
-      return `🔄 Exchange Policy:\n\nYes! We offer exchange on all jewellery at MANTI.\n\n• Visit our store or contact via WhatsApp\n• Our team guides you to the perfect replacement`;
-    if (m.includes('custom') || m.includes('bespoke'))
-      return `✨ Custom Jewellery:\n\nShare your design ideas — our artisans bring them to life!\n\n• Choose your metal (Gold/Silver)\n• Share reference images\n• Get a personalised quote\n\nClick "Custom Order" to get started!`;
-    return `✨ I'm here to help with gold & silver prices, custom jewellery, exchange policy and more. What would you like to know? 💍`;
-  }
-
-  async function getAIReply(msg) {
-    try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: `You are MANTI jewel art AI assistant in Coimbatore, Tamil Nadu. 24K Gold: ₹5,650/g, 22K: ₹5,180/g, Silver: ₹88/g. Be concise and friendly.\nUser: ${msg}` }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 400 } })
-      });
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
-    } catch { return null; }
-  }
-
-  async function sendMsg() {
-    const m = input.value.trim();
-    if (!m || busy) return;
-    addMsg(m, 'user'); input.value = '';
-    showTyping();
-    const reply = (await getAIReply(m)) || localReply(m);
-    hideTyping(); addMsg(reply, 'bot');
-  }
-
-  toggle.addEventListener('click', () => { const isOpen = win.classList.contains('open'); win.style.display = isOpen ? 'none' : 'flex'; win.classList.toggle('open', !isOpen); if (!isOpen) input.focus(); });
-  close.addEventListener('click', () => { win.style.display = 'none'; win.classList.remove('open'); });
-  send.addEventListener('click', sendMsg);
-  input.addEventListener('keypress', e => { if (e.key === 'Enter') sendMsg(); });
-  document.querySelectorAll('.quick-reply-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const q = btn.dataset.question; if (busy) return;
-      addMsg(q, 'user'); showTyping();
-      const reply = (await getAIReply(q)) || localReply(q);
-      hideTyping(); addMsg(reply, 'bot');
-    });
-  });
-});
 </script>
 </body>
 </html>

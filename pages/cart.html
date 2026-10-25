@@ -41,7 +41,7 @@
 
 <div style="background:#fff;border-bottom:1px solid var(--border);padding:12px 0">
   <div class="container" style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted)">
-    <a href="../index.html" style="color:var(--g);font-weight:500">Home</a>
+    <a href="../index.html" style="color:var(--gold2);font-weight:500">Home</a>
     <i class="fa fa-chevron-right" style="font-size:.65rem"></i>
     <span style="color:var(--text)">My Cart</span>
   </div>
@@ -86,11 +86,11 @@
       <div>
         <h4>Shop</h4>
         <div class="footer-links">
-          <span class="footer-link" onclick="filterCat('gold')">Gold Jewellery</span>
-          <span class="footer-link" onclick="filterCat('silver')">Silver Jewellery</span>
-          <span class="footer-link" onclick="filterCat('custom')">Custom Orders</span>
+          <span class="footer-link" onclick="window.location.href='collections.html?cat=gold'">Gold Jewellery</span>
+          <span class="footer-link" onclick="window.location.href='collections.html?cat=silver'">Silver Jewellery</span>
+          <span class="footer-link" onclick="window.location.href='collections.html?cat=custom'">Custom Orders</span>
           <span class="footer-link" onclick="window.location.href='custom-order.html'" style="color:var(--gold2);font-weight:600">✨ Custom Order Form</span>
-          <span class="footer-link" onclick="scrollToProducts()">New Arrivals</span>
+          <span class="footer-link" onclick="window.location.href='collections.html'">New Arrivals</span>
         </div>
       </div>
       <div>
@@ -116,7 +116,7 @@
         <div class="footer-links">
           <span class="footer-link" onclick="Auth.openModal()">Sign In / Register</span>
           <span class="footer-link" onclick="window.location.href='wishlist.html'">My Wishlist</span>
-          <span class="footer-link" onclick="goToCart()">My Cart</span>
+          <span class="footer-link" onclick="window.location.href='cart.html'">My Cart</span>
           <span class="footer-link" onclick="window.location.href='admin.html'">Admin Panel</span>
         </div>
       </div>
