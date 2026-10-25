@@ -561,6 +561,7 @@
                 </div>
               </div>
               <div class="form-grid-2">
+                <div class="form-group"><label>Making Charge (%)</label><input type="number" id="priceMakingCharges" placeholder="e.g. 5" min="0" max="100" disabled style="opacity:.5;cursor:not-allowed"/></div>
                 <div class="form-group"><label>GST (%)</label><input type="number" id="priceGst" placeholder="e.g. 3" min="0" max="100"/></div>
               </div>
               <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
@@ -897,7 +898,7 @@
                 <div class="form-group"><label>Silver Price (₹/g)</label><input type="number" id="settingsPriceSilver" placeholder="e.g. 98" min="0" step="0.01"/></div>
               </div>
               <div class="form-grid-2">
-                <div class="form-group"><label>Making Charge (%)</label><input type="number" id="settingsPriceMaking" placeholder="e.g. 5" min="0" max="100"/></div>
+                <div class="form-group"><label>Making Charge (%)</label><input type="number" id="settingsPriceMaking" placeholder="e.g. 5" min="0" max="100" disabled style="opacity:.5;cursor:not-allowed"/></div>
                 <div class="form-group"><label>GST (%)</label><input type="number" id="settingsPriceGst" placeholder="e.g. 3" min="0" max="100"/></div>
               </div>
               <button type="button" class="btn btn-primary btn-sm" onclick="savePricingFromSettings()"><i class="fa fa-save"></i> Save Pricing Settings</button>
