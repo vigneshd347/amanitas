@@ -192,7 +192,18 @@ function setupLoginForm(){
     if(email!==ADMIN_EMAIL){ showGateErr('Access denied. Invalid admin email.'); return; }
     btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i> Verifying…';
     try{ await auth.signInWithEmailAndPassword(email,pass); }
-    catch(err){ const m={'auth/wrong-password':'Incorrect password.','auth/user-not-found':'Admin account not found.','auth/invalid-credential':'Invalid credentials.','auth/too-many-requests':'Too many attempts.'}; showGateErr(m[err.code]||'Login failed.'); }
+    catch(err){
+      console.error('Admin login error:', err);
+      const m={
+        'auth/wrong-password':'Incorrect password.',
+        'auth/user-not-found':'User not found. You must create this user in Firebase Console → Authentication → Users.',
+        'auth/invalid-credential':'Invalid credentials. Check email and password.',
+        'auth/too-many-requests':'Too many attempts. Try again later.',
+        'auth/operation-not-allowed':'Email/Password sign-in is disabled in Firebase Console → Authentication → Sign-in method.',
+        'auth/unauthorized-domain':'Domain not authorized. Please run on http://localhost:3000 (not file://).'
+      };
+      showGateErr(m[err.code] || `Login failed: ${err.message || err.code}`);
+    }
     finally{ btn.disabled=false; btn.innerHTML='<i class="fa fa-sign-in-alt"></i> Enter Dashboard'; }
   });
 }
