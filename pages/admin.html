@@ -552,17 +552,70 @@
             </div>
           </div>
 
-          <!-- Promo Code -->
-          <!-- <div class="admin-card">
-            <div class="admin-card-header"><h3><i class="fa fa-tag" style="color:var(--gold2);margin-right:8px"></i>Promo Code Setting</h3></div>
-            <div class="admin-card-body">
-              <div class="form-group"><label>Promo Code</label><input type="text" id="promoCode" placeholder="e.g. GOLD20"/></div>
-              <div class="form-group"><label>Promo Title</label><input type="text" id="promoTitleInput" placeholder="e.g. Get 20% off on gold"/></div>
-              <div class="form-group"><label>Promo Text</label><input type="text" id="promoText" placeholder="Use code at checkout..."/></div>
-              <button type="button" class="btn btn-primary btn-sm" id="savePromoBtn"><i class="fa fa-save"></i> Save Promo Settings</button>
-              <div id="promoFormErr" class="err-msg" style="margin-top:10px"></div>
+          <!-- Broadcast Notification for All Users -->
+          <div class="admin-card">
+            <div class="admin-card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+              <div>
+                <h3><i class="fa fa-bullhorn" style="color:var(--gold2);margin-right:8px"></i>Broadcast Notification to All Users</h3>
+                <p style="font-size:.78rem;color:var(--muted);margin-top:2px">Show a live message or announcement notification to all website visitors</p>
+              </div>
+              <span id="broadcastLiveStatusBadge" class="badge badge-gray">Inactive</span>
             </div>
-          </div> -->
+            <div class="admin-card-body">
+              <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+                  <input type="checkbox" id="bcActive" style="width:18px;height:18px;accent-color:var(--gold2)" onchange="updateBroadcastPreview()"/>
+                  <span style="font-size:.9rem;font-weight:600;color:var(--text)">Show notification message on all website pages</span>
+                </label>
+              </div>
+
+              <div class="form-group">
+                <label>Notification Message <span class="req">*</span></label>
+                <textarea id="bcMessage" rows="2" class="admin-input" placeholder="e.g. ✨ Special Festival Offer: Flat 10% off on all gold jewellery! Order today." oninput="updateBroadcastPreview()"></textarea>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label>Notification Style / Color</label>
+                  <select id="bcType" class="admin-input" onchange="updateBroadcastPreview()">
+                    <option value="gold">🌟 Gold Luxury (Offers & Highlights)</option>
+                    <option value="message">💬 Message Alert (General Announcement)</option>
+                    <option value="blue">ℹ️ Blue Notice (Updates & Information)</option>
+                    <option value="green">✨ Green Festive (Flash Sale & Discounts)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Action Link (Optional URL)</label>
+                  <input type="text" id="bcLink" class="admin-input" placeholder="e.g. collections.html or custom-order.html" oninput="updateBroadcastPreview()"/>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Action Button Label (Optional)</label>
+                <input type="text" id="bcLinkLabel" class="admin-input" placeholder="e.g. Shop Now or View Details" oninput="updateBroadcastPreview()"/>
+              </div>
+
+              <!-- Live Preview -->
+              <div style="margin:16px 0">
+                <label style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:8px">Live Preview (How visitors will see your message)</label>
+                <div id="bcLivePreviewBox" style="padding:12px 20px;border-radius:8px;font-size:.84rem;text-align:center;border:1px solid rgba(212,175,55,.3);background:linear-gradient(135deg, #18140c 0%, #2a2010 50%, #18140c 100%);color:#f5ecd5;display:flex;align-items:center;justify-content:center;gap:8px">
+                  <i class="fa fa-gem" style="color:var(--gold2)"></i>
+                  <span id="bcPreviewText">Type a message above to preview it here…</span>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                <button type="button" class="btn btn-primary btn-sm" id="saveBroadcastBtn" onclick="saveBroadcastNotification()">
+                  <i class="fa fa-paper-plane"></i> Publish Notification to All
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="disableBroadcastNotification()">
+                  <i class="fa fa-eye-slash"></i> Turn Off Notification
+                </button>
+                <span id="broadcastUpdatedTime" style="font-size:.75rem;color:var(--muted);margin-left:auto"></span>
+              </div>
+              <div id="broadcastErr" class="err-msg" style="margin-top:12px"></div>
+            </div>
+          </div>
 
           <!-- Recent Products -->
           <div class="admin-card">

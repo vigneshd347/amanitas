@@ -33,17 +33,174 @@ function showDash(user){
   document.getElementById('adminDashboard').style.display='block';
   const em=document.getElementById('sidebarEmail'); if(em) em.textContent=user.email;
   const av=document.getElementById('sidebarAvatar'); if(av) av.textContent=(user.email||'A').charAt(0).toUpperCase();
+  const curEm=document.getElementById('currentEmailDisplay'); if(curEm) curEm.value=user.email;
   // Seed demo data if collection is empty, then listen
   seedDemoData().catch(()=>{}).finally(()=>{ listenProducts(); });
   loadPromoSettings();
   loadPricingSettings();
+  loadBroadcastNotification();
   listenOrders();
   document.getElementById('savePromoBtn')?.addEventListener('click', savePromoSettings);
-  document.getElementById('savePricingBtn')?.addEventListener('click', savePricingSettings);
+  document.getElementById('savePricingBtn')?.addEventListener('click', ()=>savePricingSettings(false));
   listenActiveUsers();
   // Initialize Customer Details feature with current user
   cdSetCurrentUser(user);
 }
+
+// ── BROADCAST NOTIFICATION TO ALL USERS ───────────────────────
+function loadBroadcastNotification(){
+  db.collection('settings').doc('broadcast').get().then(doc => {
+    if(!doc.exists) {
+      updateBroadcastStatusBadge(false);
+      updateBroadcastPreview();
+      return;
+    }
+    const d = doc.data() || {};
+    const act = document.getElementById('bcActive');
+    const msg = document.getElementById('bcMessage');
+    const typ = document.getElementById('bcType');
+    const lnk = document.getElementById('bcLink');
+    const lbl = document.getElementById('bcLinkLabel');
+    if(act) act.checked = Boolean(d.active);
+    if(msg) msg.value = d.message || '';
+    if(typ) typ.value = d.type || 'gold';
+    if(lnk) lnk.value = d.link || '';
+    if(lbl) lbl.value = d.linkLabel || '';
+
+    updateBroadcastStatusBadge(Boolean(d.active));
+    updateBroadcastPreview();
+    if(d.updatedAt?.toDate){
+      const timeStr = d.updatedAt.toDate().toLocaleString('en-IN', {dateStyle:'short', timeStyle:'short'});
+      const timeEl = document.getElementById('broadcastUpdatedTime');
+      if(timeEl) timeEl.textContent = 'Last updated: ' + timeStr;
+    }
+  }).catch(e => console.warn('Failed to load broadcast setting:', e));
+}
+
+function updateBroadcastStatusBadge(isActive){
+  const b = document.getElementById('broadcastLiveStatusBadge');
+  if(!b) return;
+  if(isActive){
+    b.className = 'badge badge-green';
+    b.innerHTML = '🟢 Live on Website';
+  } else {
+    b.className = 'badge badge-gray';
+    b.innerHTML = '⚪ Inactive';
+  }
+}
+
+function updateBroadcastPreview(){
+  const msg = document.getElementById('bcMessage')?.value.trim() || 'Type a message above to preview it here…';
+  const type = document.getElementById('bcType')?.value || 'gold';
+  const link = document.getElementById('bcLink')?.value.trim();
+  const label = document.getElementById('bcLinkLabel')?.value.trim() || 'Check Details';
+  const box = document.getElementById('bcLivePreviewBox');
+  if(!box) return;
+
+  const themes = {
+    gold: {
+      bg: 'linear-gradient(135deg, #18140c 0%, #2a2010 50%, #18140c 100%)',
+      border: 'rgba(212,175,55,.35)',
+      text: '#f5ecd5',
+      accent: '#d4af37',
+      icon: 'fa-gem'
+    },
+    blue: {
+      bg: 'linear-gradient(135deg, #0b1526 0%, #132742 50%, #0b1526 100%)',
+      border: 'rgba(59,130,246,.35)',
+      text: '#dbeafe',
+      accent: '#60a5fa',
+      icon: 'fa-bullhorn'
+    },
+    green: {
+      bg: 'linear-gradient(135deg, #0c2014 0%, #143522 50%, #0c2014 100%)',
+      border: 'rgba(34,197,94,.35)',
+      text: '#dcfce7',
+      accent: '#4ade80',
+      icon: 'fa-sparkles'
+    },
+    message: {
+      bg: 'linear-gradient(135deg, #181818 0%, #252525 50%, #181818 100%)',
+      border: 'rgba(255,255,255,.2)',
+      text: '#ffffff',
+      accent: '#f0c040',
+      icon: 'fa-bell'
+    }
+  };
+
+  const theme = themes[type] || themes.gold;
+  box.style.background = theme.bg;
+  box.style.border = `1px solid ${theme.border}`;
+  box.style.color = theme.text;
+
+  const linkPart = link ? `<span style="background:${theme.accent};color:#000;padding:2px 10px;border-radius:12px;font-size:.72rem;font-weight:700;margin-left:6px">${esc(label)} →</span>` : '';
+  box.innerHTML = `<i class="fa ${theme.icon}" style="color:${theme.accent}"></i> <span>${esc(msg)}</span> ${linkPart}`;
+}
+window.updateBroadcastPreview = updateBroadcastPreview;
+
+async function saveBroadcastNotification(){
+  const active = document.getElementById('bcActive')?.checked || false;
+  const message = document.getElementById('bcMessage')?.value.trim() || '';
+  const type = document.getElementById('bcType')?.value || 'gold';
+  const link = document.getElementById('bcLink')?.value.trim() || '';
+  const linkLabel = document.getElementById('bcLinkLabel')?.value.trim() || '';
+  const errEl = document.getElementById('broadcastErr');
+  const btn = document.getElementById('saveBroadcastBtn');
+
+  if(errEl){ errEl.classList.remove('show'); errEl.textContent = ''; }
+
+  if(active && !message){
+    if(errEl){ errEl.textContent = 'Please enter a notification message before enabling.'; errEl.classList.add('show'); }
+    showToast('Please enter a notification message.', 'err');
+    return;
+  }
+
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Publishing…'; }
+
+  try {
+    await db.collection('settings').doc('broadcast').set({
+      active,
+      message,
+      type,
+      link,
+      linkLabel,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    updateBroadcastStatusBadge(active);
+    const timeEl = document.getElementById('broadcastUpdatedTime');
+    if(timeEl) timeEl.textContent = 'Last updated: Just now';
+
+    if(active){
+      showToast('Notification published! All website visitors can now see it 📢');
+    } else {
+      showToast('Notification saved as inactive.');
+    }
+  } catch(err) {
+    console.error('Failed to save broadcast:', err);
+    if(errEl){ errEl.textContent = 'Failed to publish: ' + err.message; errEl.classList.add('show'); }
+    showToast('Failed to save notification.', 'err');
+  } finally {
+    if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fa fa-paper-plane"></i> Publish Notification to All'; }
+  }
+}
+window.saveBroadcastNotification = saveBroadcastNotification;
+
+async function disableBroadcastNotification(){
+  const act = document.getElementById('bcActive');
+  if(act) act.checked = false;
+  try {
+    await db.collection('settings').doc('broadcast').set({
+      active: false,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    updateBroadcastStatusBadge(false);
+    showToast('Notification turned off for all users 🚫');
+  } catch(e){
+    showToast('Failed to disable notification.', 'err');
+  }
+}
+window.disableBroadcastNotification = disableBroadcastNotification;
 
 function loadPromoSettings(){
   db.collection('settings').doc('promo').get().then(doc=>{
@@ -86,102 +243,382 @@ function loadPricingSettings(){
     globalPricing = {
       goldPrice: Number(data.goldPrice) || 0,
       silverPrice: Number(data.silverPrice) || 0,
-      makingCharges: Number(data.makingCharges) || 0,
       gst: Number(data.gst) || 0
     };
-    document.getElementById('priceGold').value = globalPricing.goldPrice || '';
-    document.getElementById('priceSilver').value = globalPricing.silverPrice || '';
-    document.getElementById('priceMakingCharges').value = globalPricing.makingCharges || '';
-    document.getElementById('priceGst').value = globalPricing.gst || '';
+    const gp = globalPricing.goldPrice || '';
+    const sp = globalPricing.silverPrice || '';
+    const gstVal = globalPricing.gst || '';
+
+    const el = id => document.getElementById(id);
+    if(el('priceGold')) el('priceGold').value = gp;
+    if(el('priceSilver')) el('priceSilver').value = sp;
+    if(el('priceGst')) el('priceGst').value = gstVal;
+
+    if(el('settingsPriceGold')) el('settingsPriceGold').value = gp;
+    if(el('settingsPriceSilver')) el('settingsPriceSilver').value = sp;
+    if(el('settingsPriceGst')) el('settingsPriceGst').value = gstVal;
+
+    updatePricingDisplayPills(gp, sp);
     applyPricingToProductForm();
   }).catch(err=>{ console.error('Failed to load pricing settings', err); });
 }
 
-async function savePricingSettings(){
-  const goldPrice = parseFloat(document.getElementById('priceGold').value);
-  const silverPrice = parseFloat(document.getElementById('priceSilver').value);
-  const makingCharges = parseFloat(document.getElementById('priceMakingCharges').value);
-  const gst = parseFloat(document.getElementById('priceGst').value);
-  const errEl=document.getElementById('pricingFormErr'); errEl.classList.remove('show'); errEl.textContent='';
-  if(!Number.isFinite(goldPrice) || !Number.isFinite(silverPrice) || !Number.isFinite(makingCharges) || !Number.isFinite(gst) || goldPrice<=0 || silverPrice<=0 || makingCharges<0 || gst<0){ errEl.textContent='Enter valid pricing values.'; errEl.classList.add('show'); return; }
-  const btn=document.getElementById('savePricingBtn'); btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i> Saving…';
+async function savePricingSettings(fromSettingsTab = false){
+  const goldPrice = parseFloat(document.getElementById(fromSettingsTab ? 'settingsPriceGold' : 'priceGold')?.value);
+  const silverPrice = parseFloat(document.getElementById(fromSettingsTab ? 'settingsPriceSilver' : 'priceSilver')?.value);
+  const gst = parseFloat(document.getElementById(fromSettingsTab ? 'settingsPriceGst' : 'priceGst')?.value);
+  const errEl = document.getElementById(fromSettingsTab ? 'settingsRateStatus' : 'pricingFormErr');
+  if(errEl) { errEl.classList.remove('show'); errEl.textContent=''; errEl.style.display='none'; }
+
+  if(!Number.isFinite(goldPrice) || !Number.isFinite(silverPrice) || !Number.isFinite(gst) || goldPrice<=0 || silverPrice<=0 || gst<0){
+    const msg = 'Please enter valid gold price, silver price, and GST percentage.';
+    if(errEl){ errEl.textContent = msg; errEl.classList.add('show'); errEl.style.display='block'; }
+    showToast(msg, 'err');
+    return;
+  }
+
+  const btn = document.getElementById('savePricingBtn');
+  if(btn){ btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i> Updating products…'; }
   try{
     await db.collection('settings').doc('pricing').set({
-      goldPrice, silverPrice, makingCharges, gst,
+      goldPrice, silverPrice, gst,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    globalPricing = { goldPrice, silverPrice, makingCharges, gst };
-    await updateAllProductsPricing(goldPrice, silverPrice, makingCharges, gst);
-    showToast('Pricing saved and product prices updated.');
+    }, { merge: true });
+
+    globalPricing = { ...(globalPricing || {}), goldPrice, silverPrice, gst };
+
+    ['priceGold','settingsPriceGold'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=goldPrice; });
+    ['priceSilver','settingsPriceSilver'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=silverPrice; });
+    ['priceGst','settingsPriceGst'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=gst; });
+
+    updatePricingDisplayPills(goldPrice, silverPrice);
+    await updateAllProductsPricing(goldPrice, silverPrice, gst);
+    showToast('Pricing saved! All gold & silver product prices updated automatically ✨');
     applyPricingToProductForm();
-  }catch(err){ console.error('Failed to save pricing settings', err); errEl.textContent='Save failed: '+err.message; errEl.classList.add('show'); }
-  finally{ btn.disabled=false; btn.innerHTML='<i class="fa fa-save"></i> Save Pricing Settings'; }
+  }catch(err){
+    console.error('Failed to save pricing settings', err);
+    if(errEl){ errEl.textContent = 'Save failed: ' + err.message; errEl.classList.add('show'); errEl.style.display='block'; }
+    showToast('Failed to save pricing.', 'err');
+  }finally{
+    if(btn){ btn.disabled=false; btn.innerHTML='<i class="fa fa-save"></i> Save Pricing Settings'; }
+  }
 }
+window.savePricingSettings = savePricingSettings;
+window.savePricingFromSettings = () => savePricingSettings(true);
 
-async function updateAllProductsPricing(goldPrice, silverPrice, makingCharges, gst){
-  const snap = await db.collection('products').get();
-  if(snap.empty) return;
-  let batch = db.batch();
-  let opCount = 0;
-  const commits = [];
-  snap.docs.forEach(doc=>{
-    const data = doc.data();
-    const updates = { makingCharges, gst };
-    if(data.category==='gold') updates.price = goldPrice;
-    else if(data.category==='silver') updates.price = silverPrice;
-    batch.update(doc.ref, updates);
-    opCount += 1;
-    if(opCount === 450){ commits.push(batch.commit()); batch = db.batch(); opCount = 0; }
-  });
-  if(opCount > 0) commits.push(batch.commit());
-  await Promise.all(commits);
-}
-
-function getGlobalProductPrice(category, purity){
-  if(!globalPricing) return null;
-  if(category==='gold' && globalPricing.goldPrice > 0){
+function calculateProductPrice(category, purity, weight, goldPrice, silverPrice){
+  const w = parseFloat(weight) || 0;
+  if(category === 'gold' && goldPrice > 0){
     const purityFactors = {
-      '24K': 1,
-      '22K': 0.917,
-      '18K': 0.75,
-      '14K': 0.582,
+      '24K': 1.0,
+      '22K': 0.916,
+      '18K': 0.750,
+      '14K': 0.583,
       '9K': 0.375
     };
-    const factor = purityFactors[purity] ?? 1;
-    return Math.round(globalPricing.goldPrice * factor * 100) / 100;
+    const factor = purityFactors[purity] !== undefined ? purityFactors[purity] : 0.916;
+    const ratePerGram = goldPrice * factor;
+    return w > 0 ? Math.round(w * ratePerGram) : Math.round(ratePerGram);
   }
-  if(category==='silver' && globalPricing.silverPrice > 0){
+  if(category === 'silver' && silverPrice > 0){
     const purityFactors = {
-      'Pure Silver': 1,
+      'Pure Silver': 1.0,
       'Silver': 0.925,
       '925 Silver': 0.925,
       'Silver 925': 0.925,
       'Sterling Silver': 0.925,
       '925': 0.925
     };
-    const factor = purityFactors[purity] ?? 1;
-    return Math.round(globalPricing.silverPrice * factor * 100) / 100;
+    const factor = purityFactors[purity] !== undefined ? purityFactors[purity] : 0.925;
+    const ratePerGram = silverPrice * factor;
+    return w > 0 ? Math.round(w * ratePerGram) : Math.round(ratePerGram);
   }
   return null;
 }
+window.calculateProductPrice = calculateProductPrice;
+
+async function updateAllProductsPricing(goldPrice, silverPrice, gst){
+  const snap = await db.collection('products').get();
+  if(snap.empty) return;
+  let batch = db.batch();
+  let opCount = 0;
+  const commits = [];
+
+  snap.docs.forEach(doc=>{
+    const data = doc.data();
+    const updates = {};
+    if(gst !== undefined && Number.isFinite(gst)) updates.gst = gst;
+
+    if(data.category === 'gold' && goldPrice > 0){
+      const computedPrice = calculateProductPrice('gold', data.purity, data.weight, goldPrice, silverPrice);
+      if(computedPrice !== null){
+        updates.price = computedPrice;
+        updates.basePrice = computedPrice;
+      }
+    } else if(data.category === 'silver' && silverPrice > 0){
+      const computedPrice = calculateProductPrice('silver', data.purity, data.weight, goldPrice, silverPrice);
+      if(computedPrice !== null){
+        updates.price = computedPrice;
+        updates.basePrice = computedPrice;
+      }
+    }
+
+    if(Object.keys(updates).length > 0){
+      batch.update(doc.ref, updates);
+      opCount += 1;
+      if(opCount === 450){
+        commits.push(batch.commit());
+        batch = db.batch();
+        opCount = 0;
+      }
+    }
+  });
+
+  if(opCount > 0) commits.push(batch.commit());
+  await Promise.all(commits);
+}
+
+function updatePricingDisplayPills(gold24k, silver) {
+  const g = Number(gold24k) || 0;
+  const s = Number(silver) || 0;
+  const g22 = Math.round(g * 0.916);
+
+  const el24k = document.getElementById('displayRate24k');
+  const el22k = document.getElementById('displayRate22k');
+  const elSil = document.getElementById('displayRateSilver');
+  if (el24k) el24k.textContent = g > 0 ? `₹${g}/g` : '₹0/g';
+  if (el22k) el22k.textContent = g > 0 ? `₹${g22}/g` : '₹0/g';
+  if (elSil) elSil.textContent = s > 0 ? `₹${s}/g` : '₹0/g';
+
+  const hintGold = document.getElementById('dashGold22kHint');
+  const hintSil = document.getElementById('dashSilverHint');
+  if (hintGold) hintGold.textContent = g > 0 ? `22K (Jewellery standard): ₹${g22}/g` : '';
+  if (hintSil) hintSil.textContent = s > 0 ? `Silver: ₹${s}/g` : '';
+}
+window.updatePricingDisplayPills = updatePricingDisplayPills;
+
+async function fetchLiveMarketRates(autoSave = false) {
+  const showBanner = (text, isSuccess) => {
+    ['pricingLiveBanner', 'settingsRateStatus'].forEach(id => {
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.style.display = 'block';
+      el.style.background = isSuccess ? 'rgba(34,197,94,.15)' : 'rgba(239,68,68,.15)';
+      el.style.border = isSuccess ? '1px solid rgba(34,197,94,.3)' : '1px solid rgba(239,68,68,.3)';
+      el.style.color = isSuccess ? '#86efac' : '#fca5a5';
+      el.innerHTML = text;
+    });
+  };
+
+  showBanner('<i class="fa fa-spinner fa-spin"></i> Fetching live precious metals rates (INR)...', true);
+  showToast('Fetching live market rates...');
+
+  try {
+    let goldRatePerGram = 0;
+    let silverRatePerGram = 0;
+    let sourceUsed = '';
+
+    try {
+      const [goldRes, silverRes, inrRes] = await Promise.all([
+        fetch('https://api.gold-api.com/price/XAU').then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch('https://api.gold-api.com/price/XAG').then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch('https://open.er-api.com/v6/latest/USD').then(r => r.ok ? r.json() : null).catch(() => null)
+      ]);
+
+      const inrRate = inrRes?.rates?.INR || 86.5;
+      const troyOunceToGram = 31.1034768;
+      const indiaDomesticMultiplier = 1.11;
+
+      if (goldRes?.price) {
+        const rawGoldGram = (goldRes.price / troyOunceToGram) * inrRate;
+        goldRatePerGram = Math.round(rawGoldGram * indiaDomesticMultiplier);
+      }
+      if (silverRes?.price) {
+        const rawSilverGram = (silverRes.price / troyOunceToGram) * inrRate;
+        silverRatePerGram = Math.round(rawSilverGram * indiaDomesticMultiplier * 10) / 10;
+      }
+      if (goldRatePerGram > 0 && silverRatePerGram > 0) {
+        sourceUsed = 'Live Global Spot + Domestic Bullion Benchmark';
+      }
+    } catch(e) {
+      console.warn('Spot API fetch failed, trying fallback...', e);
+    }
+
+    if (!goldRatePerGram || !silverRatePerGram) {
+      goldRatePerGram = 7520;
+      silverRatePerGram = 98;
+      sourceUsed = 'Indian Bullion Market Benchmark (Estimated)';
+    }
+
+    const gold22k = Math.round(goldRatePerGram * 0.916);
+
+    ['priceGold', 'settingsPriceGold'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = goldRatePerGram;
+    });
+    ['priceSilver', 'settingsPriceSilver'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = silverRatePerGram;
+    });
+
+    updatePricingDisplayPills(goldRatePerGram, silverRatePerGram);
+
+    const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    showBanner(`<strong>✓ Rates Fetched:</strong> 24K Gold: <strong>₹${goldRatePerGram}/g</strong> (22K: ₹${gold22k}/g) · Silver: <strong>₹${silverRatePerGram}/g</strong> <span style="opacity:.8">(${sourceUsed} · at ${now})</span>`, true);
+
+    if (autoSave) {
+      await savePricingSettings(false);
+      showToast(`⚡ Live rates saved! All products updated automatically.`);
+    } else {
+      showToast(`Live rates loaded. Click "Save Pricing Settings" to update products.`);
+    }
+  } catch (err) {
+    console.error('Rate fetch failed:', err);
+    showBanner(`Failed to fetch live rates: ${err.message}. You can enter prices manually.`, false);
+    showToast('Failed to fetch live rates.', 'err');
+  }
+}
+window.fetchLiveMarketRates = fetchLiveMarketRates;
+
+async function updateAdminEmail() {
+  const user = auth.currentUser;
+  const newEmail = document.getElementById('newAdminEmail')?.value.trim();
+  const pass = document.getElementById('confirmPassForEmail')?.value;
+  const msgEl = document.getElementById('emailChangeMsg');
+  const btn = document.getElementById('updateEmailBtn');
+
+  if (msgEl) { msgEl.classList.remove('show'); msgEl.textContent = ''; msgEl.style.display = 'none'; }
+
+  if (!user) { showToast('Not logged in.', 'err'); return; }
+  if (!newEmail || !newEmail.includes('@')) {
+    if (msgEl) { msgEl.textContent = 'Please enter a valid new email address.'; msgEl.classList.add('show'); msgEl.style.display = 'block'; }
+    return;
+  }
+  if (!pass) {
+    if (msgEl) { msgEl.textContent = 'Please enter your current password to confirm this change.'; msgEl.classList.add('show'); msgEl.style.display = 'block'; }
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Updating email…';
+
+  try {
+    const credential = firebase.auth.EmailAuthProvider.credential(user.email, pass);
+    await user.reauthenticateWithCredential(credential);
+    await user.updateEmail(newEmail);
+
+    await db.collection('settings').doc('admin').set({
+      adminEmail: newEmail,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    const sb = document.getElementById('sidebarEmail');
+    if (sb) sb.textContent = newEmail;
+    const cd = document.getElementById('currentEmailDisplay');
+    if (cd) cd.value = newEmail;
+    document.getElementById('newAdminEmail').value = '';
+    document.getElementById('confirmPassForEmail').value = '';
+
+    showToast('Admin email successfully changed to ' + newEmail + '! ✨');
+    if (msgEl) {
+      msgEl.style.display = 'block';
+      msgEl.style.background = 'rgba(34,197,94,.15)';
+      msgEl.style.borderColor = 'rgba(34,197,94,.3)';
+      msgEl.style.color = '#86efac';
+      msgEl.textContent = '✓ Admin email updated to ' + newEmail;
+    }
+  } catch (err) {
+    console.error('Email change error:', err);
+    let message = err.message;
+    if (err.code === 'auth/wrong-password') message = 'Current password is incorrect.';
+    else if (err.code === 'auth/email-already-in-use') message = 'This email is already in use by another account.';
+    else if (err.code === 'auth/requires-recent-login') message = 'Please log out and log in again before changing email.';
+    if (msgEl) { msgEl.textContent = message; msgEl.classList.add('show'); msgEl.style.display = 'block'; }
+    showToast(message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa fa-check"></i> Update Admin Email';
+  }
+}
+window.updateAdminEmail = updateAdminEmail;
+
+async function updateAdminPassword() {
+  const user = auth.currentUser;
+  const oldPass = document.getElementById('oldPasswordInp')?.value;
+  const newPass = document.getElementById('newPasswordInp')?.value;
+  const confirmPass = document.getElementById('confirmNewPasswordInp')?.value;
+  const msgEl = document.getElementById('passwordChangeMsg');
+  const btn = document.getElementById('updatePassBtn');
+
+  if (msgEl) { msgEl.classList.remove('show'); msgEl.textContent = ''; msgEl.style.display = 'none'; }
+
+  if (!user) { showToast('Not logged in.', 'err'); return; }
+  if (!oldPass) {
+    if (msgEl) { msgEl.textContent = 'Please enter your current password.'; msgEl.classList.add('show'); msgEl.style.display = 'block'; }
+    return;
+  }
+  if (!newPass || newPass.length < 6) {
+    if (msgEl) { msgEl.textContent = 'New password must be at least 6 characters.'; msgEl.classList.add('show'); msgEl.style.display = 'block'; }
+    return;
+  }
+  if (newPass !== confirmPass) {
+    if (msgEl) { msgEl.textContent = 'New passwords do not match.'; msgEl.classList.add('show'); msgEl.style.display = 'block'; }
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Updating password…';
+
+  try {
+    const credential = firebase.auth.EmailAuthProvider.credential(user.email, oldPass);
+    await user.reauthenticateWithCredential(credential);
+    await user.updatePassword(newPass);
+
+    document.getElementById('oldPasswordInp').value = '';
+    document.getElementById('newPasswordInp').value = '';
+    document.getElementById('confirmNewPasswordInp').value = '';
+
+    showToast('Admin password updated successfully! 🔒');
+    if (msgEl) {
+      msgEl.style.display = 'block';
+      msgEl.style.background = 'rgba(34,197,94,.15)';
+      msgEl.style.borderColor = 'rgba(34,197,94,.3)';
+      msgEl.style.color = '#86efac';
+      msgEl.textContent = '✓ Password updated successfully!';
+    }
+  } catch (err) {
+    console.error('Password change error:', err);
+    let message = err.message;
+    if (err.code === 'auth/wrong-password') message = 'Current password is incorrect.';
+    else if (err.code === 'auth/weak-password') message = 'Password is too weak. Use at least 6 characters.';
+    else if (err.code === 'auth/requires-recent-login') message = 'Please log out and log in again before changing password.';
+    if (msgEl) { msgEl.textContent = message; msgEl.classList.add('show'); msgEl.style.display = 'block'; }
+    showToast(message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa fa-key"></i> Update Password';
+  }
+}
+window.updateAdminPassword = updateAdminPassword;
 
 function applyPricingToProductForm(){
   if(!globalPricing) return;
   const priceEl = document.getElementById('pPrice');
-  const makingEl = document.getElementById('pMakingCharges');
   const gstEl = document.getElementById('pGst');
-  if(makingEl && Number.isFinite(globalPricing.makingCharges)){
-    makingEl.value = globalPricing.makingCharges;
-  }
   if(gstEl && Number.isFinite(globalPricing.gst)){
     gstEl.value = globalPricing.gst;
   }
   const cat = document.getElementById('pCat')?.value;
-  if(!priceEl || !cat) return;
+  if(!cat) return;
   const purity = document.getElementById('pPurity')?.value;
-  const price = getGlobalProductPrice(cat, purity);
-  if(price !== null){ priceEl.value = price; }
+  const weight = document.getElementById('pWeight')?.value;
+  const calculatedPrice = calculateProductPrice(cat, purity, weight, globalPricing.goldPrice, globalPricing.silverPrice);
+  if(calculatedPrice !== null && priceEl){
+    priceEl.value = calculatedPrice;
+    livePreview();
+  }
 }
+window.applyPricingToProductForm = applyPricingToProductForm;
 
 function setupLoginForm(){
   document.getElementById('adminLoginForm')?.addEventListener('submit',async e=>{
@@ -189,9 +626,25 @@ function setupLoginForm(){
     const email=document.getElementById('gateEmail').value.trim(), pass=document.getElementById('gatePassword').value;
     const btn=document.getElementById('gateBtn'), errEl=document.getElementById('gate-err');
     errEl.classList.remove('show');
-    if(email!==ADMIN_EMAIL){ showGateErr('Access denied. Invalid admin email.'); return; }
+    const dynamicAdminEmail = await getEffectiveAdminEmail();
+    if(email!==dynamicAdminEmail && email!==ADMIN_EMAIL){ showGateErr('Access denied. Invalid admin email.'); return; }
     btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i> Verifying…';
     try{ await auth.signInWithEmailAndPassword(email,pass); }
+    catch(err){
+      console.error('Admin login error:', err);
+      const m={
+        'auth/wrong-password':'Incorrect password.',
+        'auth/user-not-found':'User not found. You must create this user in Firebase Console → Authentication → Users.',
+        'auth/invalid-credential':'Invalid credentials. Check email and password.',
+        'auth/too-many-requests':'Too many attempts. Try again later.',
+        'auth/operation-not-allowed':'Email/Password sign-in is disabled in Firebase Console → Authentication → Sign-in method.',
+        'auth/unauthorized-domain':'Domain not authorized. Please run on http://localhost:3000 (not file://).'
+      };
+      showGateErr(m[err.code] || `Login failed: ${err.message || err.code}`);
+    }
+    finally{ btn.disabled=false; btn.innerHTML='<i class="fa fa-sign-in-alt"></i> Enter Dashboard'; }
+  });
+}
     catch(err){
       console.error('Admin login error:', err);
       const m={
@@ -804,6 +1257,10 @@ window.livePreview=livePreview;
 // Attach input listeners after DOM ready
 document.addEventListener('DOMContentLoaded',()=>{
   ['pName','pPrice','pMakingCharges','pGst','pWeight','pCat'].forEach(id=>document.getElementById(id)?.addEventListener('input',livePreview));
+  ['pWeight','pCat','pPurity'].forEach(id=>{
+    document.getElementById(id)?.addEventListener('input',applyPricingToProductForm);
+    document.getElementById(id)?.addEventListener('change',applyPricingToProductForm);
+  });
 });
 
 // ── SIZES ─────────────────────────────────────────────────────

@@ -304,5 +304,147 @@ window.LOGO_SVG             = LOGO_SVG;
 window.DEMO_PRODUCTS        = DEMO_PRODUCTS;
 window.seedDemoData         = seedDemoData;
 
+// ============================================================
+// Global Broadcast Notification for All Website Visitors
+// ============================================================
+function initBroadcastNotification() {
+  if (typeof db === 'undefined') return;
+  // Don't show top notification banner on admin dashboard itself
+  if (window.location.pathname.includes('admin.html')) return;
+
+  try {
+    db.collection('settings').doc('broadcast').onSnapshot(doc => {
+      const existing = document.getElementById('globalBroadcastBanner');
+      if (!doc.exists) {
+        if (existing) dismissBroadcast();
+        return;
+      }
+      const data = doc.data();
+      if (!data || !data.active || !data.message) {
+        if (existing) dismissBroadcast();
+        return;
+      }
+
+      // Check if dismissed in this session
+      const dismissedKey = 'manti_broadcast_' + (data.updatedAt?.toMillis?.() || data.updatedAt || 'active');
+      if (sessionStorage.getItem(dismissedKey)) {
+        if (existing) dismissBroadcast();
+        return;
+      }
+
+      renderBroadcastBanner(data, dismissedKey);
+    }, err => console.warn('Broadcast listener error:', err));
+  } catch(e) {
+    console.warn('Failed to initialize broadcast listener:', e);
+  }
+}
+
+function renderBroadcastBanner(data, dismissedKey) {
+  let banner = document.getElementById('globalBroadcastBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'globalBroadcastBanner';
+    document.body.prepend(banner);
+  }
+
+  const type = data.type || 'gold';
+  const themes = {
+    gold: {
+      bg: 'linear-gradient(135deg, #18140c 0%, #2a2010 50%, #18140c 100%)',
+      border: 'rgba(212,175,55,.35)',
+      text: '#f5ecd5',
+      accent: '#d4af37',
+      icon: 'fa-gem'
+    },
+    blue: {
+      bg: 'linear-gradient(135deg, #0b1526 0%, #132742 50%, #0b1526 100%)',
+      border: 'rgba(59,130,246,.35)',
+      text: '#dbeafe',
+      accent: '#60a5fa',
+      icon: 'fa-bullhorn'
+    },
+    green: {
+      bg: 'linear-gradient(135deg, #0c2014 0%, #143522 50%, #0c2014 100%)',
+      border: 'rgba(34,197,94,.35)',
+      text: '#dcfce7',
+      accent: '#4ade80',
+      icon: 'fa-sparkles'
+    },
+    message: {
+      bg: 'linear-gradient(135deg, #181818 0%, #252525 50%, #181818 100%)',
+      border: 'rgba(255,255,255,.2)',
+      text: '#ffffff',
+      accent: '#f0c040',
+      icon: 'fa-bell'
+    }
+  };
+
+  const theme = themes[type] || themes.gold;
+  const linkHtml = data.link ? `<a href="${esc(data.link)}" style="display:inline-flex;align-items:center;gap:6px;background:${theme.accent};color:#000;padding:4px 12px;border-radius:20px;font-size:.76rem;font-weight:700;margin-left:8px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.3);">${esc(data.linkLabel || 'Check Details')} →</a>` : '';
+
+  banner.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 99999;
+    background: ${theme.bg};
+    border-bottom: 1px solid ${theme.border};
+    color: ${theme.text};
+    padding: 10px 48px 10px 20px;
+    font-size: .84rem;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .3s ease;
+  `;
+
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
+      <i class="fa ${theme.icon}" style="color:${theme.accent};font-size:.9rem"></i>
+      <span>${esc(data.message)}</span>
+      ${linkHtml}
+    </div>
+    <button onclick="dismissBroadcast('${dismissedKey}')" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.1);color:inherit;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.75rem;transition:background .2s;" title="Dismiss message">✕</button>
+  `;
+
+  setTimeout(() => {
+    const bannerHeight = banner.offsetHeight || 42;
+    const navbars = document.querySelectorAll('.navbar, #mainNav');
+    navbars.forEach(nav => {
+      nav.style.transform = `translateY(${bannerHeight}px)`;
+      nav.style.transition = 'transform .25s ease';
+    });
+    document.body.style.marginTop = `${bannerHeight}px`;
+  }, 50);
+}
+
+function dismissBroadcast(key) {
+  if (key) sessionStorage.setItem(key, '1');
+  const banner = document.getElementById('globalBroadcastBanner');
+  if (banner) {
+    banner.style.opacity = '0';
+    banner.style.transform = 'translateY(-100%)';
+    setTimeout(() => banner.remove(), 250);
+  }
+  const navbars = document.querySelectorAll('.navbar, #mainNav');
+  navbars.forEach(nav => {
+    nav.style.transform = 'translateY(0)';
+  });
+  document.body.style.marginTop = '0px';
+}
+window.dismissBroadcast = dismissBroadcast;
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initBroadcastNotification);
+} else {
+  initBroadcastNotification();
+}
+
+
 
 
