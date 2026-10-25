@@ -720,7 +720,16 @@
                 </div>
 
                 <div class="form-grid-2">
-                  <div class="form-group"><label>Making Charges (%)</label><input type="number" id="pMakingCharges" placeholder="e.g. 5" min="0" max="100" oninput="livePreview()"/></div>
+                  <div class="form-group">
+                    <label>Making Charges</label>
+                    <div style="display:flex;gap:8px">
+                      <select id="pMcType" style="width:90px;flex-shrink:0" onchange="livePreview()">
+                        <option value="percent">%</option>
+                        <option value="amount">₹ Amt</option>
+                      </select>
+                      <input type="number" id="pMakingCharges" placeholder="e.g. 5" min="0" oninput="livePreview()"/>
+                    </div>
+                  </div>
                   <div class="form-group"><label>GST (%)</label><input type="number" id="pGst" placeholder="e.g. 3" min="0" max="100" oninput="livePreview()"/></div>
                 </div>
 

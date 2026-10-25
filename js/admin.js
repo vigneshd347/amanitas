@@ -168,14 +168,6 @@ function getGlobalProductPrice(category, purity){
 function applyPricingToProductForm(){
   if(!globalPricing) return;
   const priceEl = document.getElementById('pPrice');
-  const makingEl = document.getElementById('pMakingCharges');
-  const gstEl = document.getElementById('pGst');
-  if(makingEl && Number.isFinite(globalPricing.makingCharges)){
-    makingEl.value = globalPricing.makingCharges;
-  }
-  if(gstEl && Number.isFinite(globalPricing.gst)){
-    gstEl.value = globalPricing.gst;
-  }
   const cat = document.getElementById('pCat')?.value;
   if(!priceEl || !cat) return;
   const purity = document.getElementById('pPurity')?.value;
@@ -834,12 +826,9 @@ function editProduct(id){
   document.getElementById('pName').value=p.name||'';
   document.getElementById('pPrice').value=p.price||'';
   const savedMaking = Number(p.makingCharges || 0);
-  let editMaking = savedMaking;
-  if (savedMaking > 100 && p.price > 0) {
-    // old-style rupee-based entries. convert to percentage for edit mode.
-    editMaking = Math.round((savedMaking / p.price) * 100 * 100) / 100;
-  }
-  document.getElementById('pMakingCharges').value=editMaking;
+  document.getElementById('pMakingCharges').value=savedMaking;
+  const mcTypeEl = document.getElementById('pMcType');
+  if(mcTypeEl) mcTypeEl.value = p.mcType || 'percent';
   document.getElementById('pGst').value=p.gst||'';
   document.getElementById('pWeight').value=p.weight||'';
   document.getElementById('pCat').value=p.category||'';
@@ -879,6 +868,7 @@ async function saveProduct(){
         hasSizes=document.getElementById('pHasSizes').value==='true',
         productId=document.getElementById('pId').value.trim();
   let price = rawPrice;
+  const mcType = document.getElementById('pMcType')?.value || 'percent';
   const makingCharges = formMakingPct;
   const gst = formGst;
   const errEl=document.getElementById('formErr'); errEl.classList.remove('show');
@@ -891,7 +881,7 @@ async function saveProduct(){
   if(!finalProductId){errEl.textContent='Product ID generation failed. Please retry.';errEl.classList.add('show');return;}
   const btn=document.getElementById('saveBtn'); btn.disabled=true;
   document.getElementById('saveTxt').textContent='Saving…';
-  const data={name,price,makingCharges,gst,weight,purity,category:cat,inStock,imageUrl,description:desc,hasSizes,availableSizes:hasSizes?productSizes:[],productId:finalProductId,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  const data={name,price,makingCharges,mcType,gst,weight,purity,category:cat,inStock,imageUrl,description:desc,hasSizes,availableSizes:hasSizes?productSizes:[],productId:finalProductId,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
   try{
     if(editingId){ await db.collection('products').doc(editingId).update(data); showToast('Product updated! ✓'); }
     else{
@@ -909,8 +899,7 @@ function resetForm(){
   editingId=null; productSizes=[];
   ['pName','pPrice','pMakingCharges','pGst','pWeight','pDesc','pUrl','pId','editId'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   document.getElementById('pCat').value=''; document.getElementById('pPurity').value=''; document.getElementById('pStock').value='true'; document.getElementById('pHasSizes').value='false';
-  document.getElementById('pMakingCharges').value = globalPricing.makingCharges || '';
-  document.getElementById('pGst').value = globalPricing.gst || '';
+  const mcType = document.getElementById('pMcType'); if(mcType) mcType.value = 'percent';
   document.getElementById('formTitle').innerHTML='<i class="fa fa-plus-circle" style="color:var(--gold2)"></i> Add New Product';
   document.getElementById('saveTxt').textContent='Save Product';
   document.getElementById('formErr').classList.remove('show');
@@ -938,13 +927,14 @@ function livePreview(){
   }
   const name=document.getElementById('pName')?.value||'Product Name';
   const price=parseFloat(document.getElementById('pPrice')?.value)||0;
-  const makingChargesPct=parseFloat(document.getElementById('pMakingCharges')?.value)||0;
+  const mcVal=parseFloat(document.getElementById('pMakingCharges')?.value)||0;
+  const mcType=document.getElementById('pMcType')?.value||'percent';
   const gst=parseFloat(document.getElementById('pGst')?.value)||0;
   const weight=parseFloat(document.getElementById('pWeight')?.value)||0;
   const purity=document.getElementById('pPurity')?.value||'';
-  const base = price * weight;  // gold value
-  const makingAmount = base * makingChargesPct / 100;  // making based on gold value
-  const gstAmount = base * gst / 100;  // GST on gold value
+  const base = price * weight;
+  const makingAmount = mcType === 'amount' ? mcVal : (base * mcVal / 100);
+  const gstAmount = base * gst / 100;
   const total = base + makingAmount + gstAmount;
   const cat=document.getElementById('pCat')?.value||'category';
   document.getElementById('liveName').textContent=name||'Product Name';
