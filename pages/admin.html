@@ -462,18 +462,19 @@
         <button class="admin-nav-item" data-tab="orders"><i class="fa fa-receipt"></i> New Orders</button>
         <button class="admin-nav-item" data-tab="add"><i class="fa fa-plus-circle"></i> Add Product</button>
         <button class="admin-nav-item" data-tab="customer-details"><i class="fa fa-file-lines"></i> Customer Details</button>
+        <button class="admin-nav-item" data-tab="settings"><i class="fa fa-user-gear"></i> Admin Settings</button>
         <div class="admin-nav-divider"></div>
         <button class="admin-nav-item" onclick="window.open('../index.html','_blank')"><i class="fa fa-eye"></i> View Store</button>
         <button class="admin-nav-item" onclick="window.open('https://wa.me/'+WHATSAPP_NUMBER,'_blank')"><i class="fa-brands fa-whatsapp"></i> WhatsApp</button>
       </nav>
       <div class="admin-sidebar-footer">
-        <div class="admin-sidebar-user">
+        <div class="admin-sidebar-user" style="cursor:pointer" onclick="switchTab('settings')" title="Change Username & Password">
           <div class="admin-sidebar-user-avatar" id="sidebarAvatar">A</div>
           <div class="admin-sidebar-user-info">
             <span id="sidebarEmail">vicky@manti.com</span>
-            <small>Administrator</small>
+            <small style="color:var(--gold2)"><i class="fa fa-key" style="font-size:.65rem"></i> Change Account</small>
           </div>
-          <button class="admin-logout-btn" onclick="adminLogout()" title="Sign Out"><i class="fa fa-sign-out-alt"></i></button>
+          <button class="admin-logout-btn" onclick="event.stopPropagation();adminLogout()" title="Sign Out"><i class="fa fa-sign-out-alt"></i></button>
         </div>
       </div>
     </aside>
@@ -517,17 +518,36 @@
 
           <!-- Pricing Settings -->
           <div class="admin-card">
-            <div class="admin-card-header"><h3><i class="fa fa-coins" style="color:var(--gold2);margin-right:8px"></i>Pricing Settings</h3></div>
+            <div class="admin-card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+              <h3><i class="fa fa-coins" style="color:var(--gold2);margin-right:8px"></i>Pricing Settings</h3>
+              <div style="display:flex;gap:8px">
+                <button type="button" class="btn btn-outline btn-sm" id="btnAutoFetchRates" onclick="fetchLiveMarketRates(false)">
+                  <i class="fa fa-bolt" style="color:var(--gold2)"></i> Auto-Fetch Live Prices
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="btnAutoFetchAndSave" onclick="fetchLiveMarketRates(true)">
+                  <i class="fa fa-sync-alt"></i> Fetch & Save All
+                </button>
+              </div>
+            </div>
             <div class="admin-card-body">
+              <div id="pricingLiveBanner" style="display:none;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:.82rem"></div>
               <div class="form-grid-2">
-                <div class="form-group"><label>Gold Price (₹/g)</label><input type="number" id="priceGold" placeholder="e.g. 5650" min="0" step="0.01"/></div>
-                <div class="form-group"><label>Silver Price (₹/g)</label><input type="number" id="priceSilver" placeholder="e.g. 75" min="0" step="0.01"/></div>
+                <div class="form-group">
+                  <label>Gold Price 24K (₹/g)</label>
+                  <input type="number" id="priceGold" placeholder="e.g. 7450" min="0" step="0.01"/>
+                  <small id="dashGold22kHint" style="color:var(--muted);font-size:.74rem;display:block;margin-top:4px"></small>
+                </div>
+                <div class="form-group">
+                  <label>Silver Price (₹/g)</label>
+                  <input type="number" id="priceSilver" placeholder="e.g. 98" min="0" step="0.01"/>
+                  <small id="dashSilverHint" style="color:var(--muted);font-size:.74rem;display:block;margin-top:4px"></small>
+                </div>
               </div>
-              <div class="form-grid-2">
-                <div class="form-group"><label>Making Charge (%)</label><input type="number" id="priceMakingCharges" placeholder="e.g. 5" min="0" max="100"/></div>
-                <div class="form-group"><label>GST (%)</label><input type="number" id="priceGst" placeholder="e.g. 3" min="0" max="100"/></div>
+              <div class="form-group"><label>GST (%)</label><input type="number" id="priceGst" placeholder="e.g. 3" min="0" max="100"/></div>
+              <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                <button type="button" class="btn btn-primary btn-sm" id="savePricingBtn"><i class="fa fa-save"></i> Save Pricing Settings</button>
+                <span id="dashPricingUpdateBadge" style="font-size:.75rem;color:var(--muted);margin-left:auto"></span>
               </div>
-              <button type="button" class="btn btn-primary btn-sm" id="savePricingBtn"><i class="fa fa-save"></i> Save Pricing Settings</button>
               <div id="pricingFormErr" class="err-msg" style="margin-top:10px"></div>
             </div>
           </div>
@@ -812,6 +832,124 @@
             </div>
           </div>
         </div><!-- /tab-customer-details -->
+
+        <!-- ── TAB: SETTINGS (USERNAME & PASSWORD & PRICING) ── -->
+        <div id="tab-settings" class="admin-section">
+          
+          <!-- Live Gold & Silver Automatic Rates -->
+          <div class="admin-card" style="margin-bottom:24px">
+            <div class="admin-card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+              <div>
+                <h3><i class="fa fa-coins" style="color:var(--gold2);margin-right:8px"></i>Live Precious Metals Rate</h3>
+                <p style="font-size:.78rem;color:var(--muted);margin-top:2px">Automatically fetch live 24K/22K gold & silver prices and update catalog</p>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button type="button" class="btn btn-outline btn-sm" onclick="fetchLiveMarketRates(false)">
+                  <i class="fa fa-bolt" style="color:var(--gold2)"></i> Fetch Live Rates
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="fetchLiveMarketRates(true)">
+                  <i class="fa fa-sync-alt"></i> Fetch & Save to All Products
+                </button>
+              </div>
+            </div>
+            <div class="admin-card-body">
+              <div id="settingsRateStatus" style="display:none;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:.84rem"></div>
+              
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px">
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
+                  <span style="font-size:.75rem;color:var(--muted);display:block;text-transform:uppercase;letter-spacing:.05em">Gold 24K (Pure)</span>
+                  <strong id="displayRate24k" style="font-size:1.35rem;color:var(--gold2);display:block;margin-top:4px">₹0/g</strong>
+                  <small style="font-size:.72rem;color:var(--muted)">Base spot rate</small>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
+                  <span style="font-size:.75rem;color:var(--muted);display:block;text-transform:uppercase;letter-spacing:.05em">Gold 22K (Jewellery)</span>
+                  <strong id="displayRate22k" style="font-size:1.35rem;color:var(--gold);display:block;margin-top:4px">₹0/g</strong>
+                  <small style="font-size:.72rem;color:var(--muted)">91.6% purity calculation</small>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
+                  <span style="font-size:.75rem;color:var(--muted);display:block;text-transform:uppercase;letter-spacing:.05em">Silver</span>
+                  <strong id="displayRateSilver" style="font-size:1.35rem;color:var(--chrome);display:block;margin-top:4px">₹0/g</strong>
+                  <small style="font-size:.72rem;color:var(--muted)">Per gram rate</small>
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group"><label>Gold 24K Price (₹/g)</label><input type="number" id="settingsPriceGold" placeholder="e.g. 7450" min="0" step="0.01"/></div>
+                <div class="form-group"><label>Silver Price (₹/g)</label><input type="number" id="settingsPriceSilver" placeholder="e.g. 98" min="0" step="0.01"/></div>
+              </div>
+              <div class="form-group"><label>GST (%)</label><input type="number" id="settingsPriceGst" placeholder="e.g. 3" min="0" max="100"/></div>
+              <button type="button" class="btn btn-primary btn-sm" onclick="savePricingFromSettings()"><i class="fa fa-save"></i> Save Pricing Settings</button>
+            </div>
+          </div>
+
+          <!-- Admin Account Settings (Username & Password) -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px">
+            
+            <!-- Change Username / Email -->
+            <div class="admin-card">
+              <div class="admin-card-header">
+                <h3><i class="fa fa-user-pen" style="color:var(--gold2);margin-right:8px"></i>Change Admin Email / Username</h3>
+              </div>
+              <div class="admin-card-body">
+                <div id="emailChangeMsg" class="err-msg"></div>
+                <div class="form-group">
+                  <label>Current Admin Email</label>
+                  <input type="text" id="currentEmailDisplay" class="admin-input" disabled style="opacity:.65"/>
+                </div>
+                <div class="form-group">
+                  <label>New Admin Email <span class="req">*</span></label>
+                  <input type="email" id="newAdminEmail" class="admin-input" placeholder="e.g. newadmin@manti.com"/>
+                </div>
+                <div class="form-group">
+                  <label>Current Password <span class="req">* (required to confirm)</span></label>
+                  <div class="input-wrap">
+                    <input type="password" id="confirmPassForEmail" class="admin-input" placeholder="••••••••"/>
+                    <button type="button" class="input-eye" onclick="togglePw(this)"><i class="fa fa-eye"></i></button>
+                  </div>
+                </div>
+                <button type="button" class="btn btn-primary full" id="updateEmailBtn" onclick="updateAdminEmail()">
+                  <i class="fa fa-check"></i> Update Admin Email
+                </button>
+              </div>
+            </div>
+
+            <!-- Change Password -->
+            <div class="admin-card">
+              <div class="admin-card-header">
+                <h3><i class="fa fa-lock" style="color:var(--gold2);margin-right:8px"></i>Change Password</h3>
+              </div>
+              <div class="admin-card-body">
+                <div id="passwordChangeMsg" class="err-msg"></div>
+                <div class="form-group">
+                  <label>Current Password <span class="req">*</span></label>
+                  <div class="input-wrap">
+                    <input type="password" id="oldPasswordInp" class="admin-input" placeholder="••••••••"/>
+                    <button type="button" class="input-eye" onclick="togglePw(this)"><i class="fa fa-eye"></i></button>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>New Password <span class="req">* (min 6 characters)</span></label>
+                  <div class="input-wrap">
+                    <input type="password" id="newPasswordInp" class="admin-input" placeholder="••••••••"/>
+                    <button type="button" class="input-eye" onclick="togglePw(this)"><i class="fa fa-eye"></i></button>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Confirm New Password <span class="req">*</span></label>
+                  <div class="input-wrap">
+                    <input type="password" id="confirmNewPasswordInp" class="admin-input" placeholder="••••••••"/>
+                    <button type="button" class="input-eye" onclick="togglePw(this)"><i class="fa fa-eye"></i></button>
+                  </div>
+                </div>
+                <button type="button" class="btn btn-primary full" id="updatePassBtn" onclick="updateAdminPassword()">
+                  <i class="fa fa-key"></i> Update Password
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+        </div><!-- /tab-settings -->
 
       </div><!-- /admin-body -->
     </div><!-- /admin-main -->

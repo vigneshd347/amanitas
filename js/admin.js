@@ -22,7 +22,7 @@ function showGateErr(msg){ const e=document.getElementById('gate-err'); e.textCo
 function generateProductId(){
   const el = document.getElementById('pId');
   if(!el) return;
-  const id = `MANTI-${Math.floor(100000 + Math.random() * 900000)}-${Date.now().toString().slice(-5)}`;
+  const id = `Manti-${Math.floor(100000 + Math.random() * 900000)}-${Date.now().toString().slice(-5)}`;
   el.value = id;
   showToast(`Product ID generated: ${id}`);
 }
@@ -732,7 +732,7 @@ async function saveProduct(){
   const makingCharges = makingPct;
   const errEl=document.getElementById('formErr'); errEl.classList.remove('show');
 
-  let finalProductId = productId || `MANTI-${Math.floor(100000 + Math.random() * 900000)}-${Date.now().toString().slice(-5)}`;
+  let finalProductId = productId || `Manti-${Math.floor(100000 + Math.random() * 900000)}-${Date.now().toString().slice(-5)}`;
   if(!name){errEl.textContent='Product name is required.';errEl.classList.add('show');return;}
   if(!price||price<=0){errEl.textContent='Enter a valid price.';errEl.classList.add('show');return;}
   if(!cat){errEl.textContent='Please select a category.';errEl.classList.add('show');return;}
@@ -849,7 +849,7 @@ function switchTab(name){
   document.querySelectorAll('.admin-nav-item[data-tab]').forEach(b=>b.classList.remove('active'));
   const s=document.getElementById('tab-'+name); if(s) s.classList.add('active');
   const b=document.querySelector(`.admin-nav-item[data-tab="${name}"]`); if(b) b.classList.add('active');
-  const titles={dashboard:'Dashboard',products:'All Products',orders:'New Orders',add:editingId?'Edit Product':'Add Product','customer-details':'Customer Details'};
+  const titles={dashboard:'Dashboard',products:'All Products',orders:'New Orders',add:editingId?'Edit Product':'Add Product','customer-details':'Customer Details',settings:'Admin Settings'};
   const t=document.getElementById('adminPageTitle'); if(t) t.textContent=titles[name]||name;
   // Only reset the form when navigating AWAY from add tab (not to add tab)
   if(name==='dashboard'||name==='products'){ resetForm(); }
@@ -857,6 +857,13 @@ function switchTab(name){
   if(name==='products'){ renderTable(allProducts); }
   // Load customer details when switching to that tab
   if(name==='customer-details'){ cdLoadNotes(); }
+  if(name==='settings'){
+    if(auth.currentUser){
+      const cd = document.getElementById('currentEmailDisplay');
+      if(cd) cd.value = auth.currentUser.email;
+    }
+    loadPricingSettings();
+  }
 }
 window.switchTab=switchTab;
 

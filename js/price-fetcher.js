@@ -9,18 +9,18 @@ class CompactPriceFetcher {
       const doc = await db.collection('settings').doc('pricing').get();
       if (!doc.exists) {
         console.warn('⚠️ Pricing settings not found in Firestore; using defaults');
-        return { goldPrice: 6500, silverPrice: 75, makingCharges: 5, gst: 3 };
+        return { goldPrice: 6500, silverPrice: 75, makingCharges: 0, gst: 3 };
       }
       const data = doc.data();
       return {
         goldPrice: Number(data.goldPrice) || 6500,
         silverPrice: Number(data.silverPrice) || 75,
-        makingCharges: Number(data.makingCharges) || 5,
+        makingCharges: Number(data.makingCharges) || 0,
         gst: Number(data.gst) || 3
       };
     } catch (error) {
       console.error('❌ Error fetching pricing from Firestore:', error);
-      return { goldPrice: 6500, silverPrice: 75, makingCharges: 5, gst: 3 };
+      return { goldPrice: 6500, silverPrice: 75, makingCharges: 0, gst: 3 };
     }
   }
 
