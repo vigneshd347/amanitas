@@ -112,8 +112,7 @@ async function savePricingSettings(){
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     globalPricing = { goldPrice, silverPrice, makingCharges, gst };
-    await updateAllProductsPricing(goldPrice, silverPrice, makingCharges, gst);
-    showToast('Pricing saved and product prices updated.');
+    showToast('Pricing settings saved.');
     applyPricingToProductForm();
   }catch(err){ console.error('Failed to save pricing settings', err); errEl.textContent='Save failed: '+err.message; errEl.classList.add('show'); }
   finally{ btn.disabled=false; btn.innerHTML='<i class="fa fa-save"></i> Save Pricing Settings'; }
@@ -847,11 +846,7 @@ function editProduct(id){
   // updatePurityOptions BEFORE setting purity so the dropdown has the right options
   updatePurityOptions();
   document.getElementById('pPurity').value=p.purity||'';
-  if(globalPricing){
-    if(globalPricing.makingCharges !== undefined) document.getElementById('pMakingCharges').value = globalPricing.makingCharges;
-    if(globalPricing.gst !== undefined) document.getElementById('pGst').value = globalPricing.gst;
-  }
-  applyPricingToProductForm();
+  // Keep product's own saved values — no global override
   document.getElementById('pStock').value=String(p.inStock!==false);
   document.getElementById('pDesc').value=p.description||'';
   document.getElementById('pUrl').value=p.imageUrl||'';
@@ -884,13 +879,8 @@ async function saveProduct(){
         hasSizes=document.getElementById('pHasSizes').value==='true',
         productId=document.getElementById('pId').value.trim();
   let price = rawPrice;
-  if(globalPricing){
-    const computedPrice = getGlobalProductPrice(cat, purity);
-    if(computedPrice !== null){ price = computedPrice; }
-  }
-  const makingPct = globalPricing ? globalPricing.makingCharges : formMakingPct;
-  const gst = globalPricing ? globalPricing.gst : formGst;
-  const makingCharges = makingPct;
+  const makingCharges = formMakingPct;
+  const gst = formGst;
   const errEl=document.getElementById('formErr'); errEl.classList.remove('show');
 
   let finalProductId = productId || `MANTI-${Math.floor(100000 + Math.random() * 900000)}-${Date.now().toString().slice(-5)}`;
@@ -901,7 +891,7 @@ async function saveProduct(){
   if(!finalProductId){errEl.textContent='Product ID generation failed. Please retry.';errEl.classList.add('show');return;}
   const btn=document.getElementById('saveBtn'); btn.disabled=true;
   document.getElementById('saveTxt').textContent='Saving…';
-  const data={name,price,makingCharges:makingPct,gst,weight,purity,category:cat,inStock,imageUrl,description:desc,hasSizes,availableSizes:hasSizes?productSizes:[],productId:finalProductId,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  const data={name,price,makingCharges,gst,weight,purity,category:cat,inStock,imageUrl,description:desc,hasSizes,availableSizes:hasSizes?productSizes:[],productId:finalProductId,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
   try{
     if(editingId){ await db.collection('products').doc(editingId).update(data); showToast('Product updated! ✓'); }
     else{
