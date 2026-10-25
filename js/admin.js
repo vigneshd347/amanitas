@@ -22,7 +22,7 @@ function showGateErr(msg){ const e=document.getElementById('gate-err'); e.textCo
 function generateProductId(){
   const el = document.getElementById('pId');
   if(!el) return;
-  const id = `Manti-${Math.floor(100000 + Math.random() * 900000)}-${Date.now().toString().slice(-5)}`;
+  const id = `MANTI-${Math.floor(100000 + Math.random() * 900000)}-${Date.now().toString().slice(-5)}`;
   el.value = id;
   showToast(`Product ID generated: ${id}`);
 }
@@ -33,174 +33,18 @@ function showDash(user){
   document.getElementById('adminDashboard').style.display='block';
   const em=document.getElementById('sidebarEmail'); if(em) em.textContent=user.email;
   const av=document.getElementById('sidebarAvatar'); if(av) av.textContent=(user.email||'A').charAt(0).toUpperCase();
-  const curEm=document.getElementById('currentEmailDisplay'); if(curEm) curEm.value=user.email;
+  const curDisplay = document.getElementById('currentEmailDisplay'); if(curDisplay) curDisplay.value = user.email || '';
   // Seed demo data if collection is empty, then listen
   seedDemoData().catch(()=>{}).finally(()=>{ listenProducts(); });
   loadPromoSettings();
   loadPricingSettings();
-  loadBroadcastNotification();
   listenOrders();
   document.getElementById('savePromoBtn')?.addEventListener('click', savePromoSettings);
-  document.getElementById('savePricingBtn')?.addEventListener('click', ()=>savePricingSettings(false));
+  document.getElementById('savePricingBtn')?.addEventListener('click', savePricingSettings);
   listenActiveUsers();
   // Initialize Customer Details feature with current user
   cdSetCurrentUser(user);
 }
-
-// ── BROADCAST NOTIFICATION TO ALL USERS ───────────────────────
-function loadBroadcastNotification(){
-  db.collection('settings').doc('broadcast').get().then(doc => {
-    if(!doc.exists) {
-      updateBroadcastStatusBadge(false);
-      updateBroadcastPreview();
-      return;
-    }
-    const d = doc.data() || {};
-    const act = document.getElementById('bcActive');
-    const msg = document.getElementById('bcMessage');
-    const typ = document.getElementById('bcType');
-    const lnk = document.getElementById('bcLink');
-    const lbl = document.getElementById('bcLinkLabel');
-    if(act) act.checked = Boolean(d.active);
-    if(msg) msg.value = d.message || '';
-    if(typ) typ.value = d.type || 'gold';
-    if(lnk) lnk.value = d.link || '';
-    if(lbl) lbl.value = d.linkLabel || '';
-
-    updateBroadcastStatusBadge(Boolean(d.active));
-    updateBroadcastPreview();
-    if(d.updatedAt?.toDate){
-      const timeStr = d.updatedAt.toDate().toLocaleString('en-IN', {dateStyle:'short', timeStyle:'short'});
-      const timeEl = document.getElementById('broadcastUpdatedTime');
-      if(timeEl) timeEl.textContent = 'Last updated: ' + timeStr;
-    }
-  }).catch(e => console.warn('Failed to load broadcast setting:', e));
-}
-
-function updateBroadcastStatusBadge(isActive){
-  const b = document.getElementById('broadcastLiveStatusBadge');
-  if(!b) return;
-  if(isActive){
-    b.className = 'badge badge-green';
-    b.innerHTML = '🟢 Live on Website';
-  } else {
-    b.className = 'badge badge-gray';
-    b.innerHTML = '⚪ Inactive';
-  }
-}
-
-function updateBroadcastPreview(){
-  const msg = document.getElementById('bcMessage')?.value.trim() || 'Type a message above to preview it here…';
-  const type = document.getElementById('bcType')?.value || 'gold';
-  const link = document.getElementById('bcLink')?.value.trim();
-  const label = document.getElementById('bcLinkLabel')?.value.trim() || 'Check Details';
-  const box = document.getElementById('bcLivePreviewBox');
-  if(!box) return;
-
-  const themes = {
-    gold: {
-      bg: 'linear-gradient(135deg, #18140c 0%, #2a2010 50%, #18140c 100%)',
-      border: 'rgba(212,175,55,.35)',
-      text: '#f5ecd5',
-      accent: '#d4af37',
-      icon: 'fa-gem'
-    },
-    blue: {
-      bg: 'linear-gradient(135deg, #0b1526 0%, #132742 50%, #0b1526 100%)',
-      border: 'rgba(59,130,246,.35)',
-      text: '#dbeafe',
-      accent: '#60a5fa',
-      icon: 'fa-bullhorn'
-    },
-    green: {
-      bg: 'linear-gradient(135deg, #0c2014 0%, #143522 50%, #0c2014 100%)',
-      border: 'rgba(34,197,94,.35)',
-      text: '#dcfce7',
-      accent: '#4ade80',
-      icon: 'fa-sparkles'
-    },
-    message: {
-      bg: 'linear-gradient(135deg, #181818 0%, #252525 50%, #181818 100%)',
-      border: 'rgba(255,255,255,.2)',
-      text: '#ffffff',
-      accent: '#f0c040',
-      icon: 'fa-bell'
-    }
-  };
-
-  const theme = themes[type] || themes.gold;
-  box.style.background = theme.bg;
-  box.style.border = `1px solid ${theme.border}`;
-  box.style.color = theme.text;
-
-  const linkPart = link ? `<span style="background:${theme.accent};color:#000;padding:2px 10px;border-radius:12px;font-size:.72rem;font-weight:700;margin-left:6px">${esc(label)} →</span>` : '';
-  box.innerHTML = `<i class="fa ${theme.icon}" style="color:${theme.accent}"></i> <span>${esc(msg)}</span> ${linkPart}`;
-}
-window.updateBroadcastPreview = updateBroadcastPreview;
-
-async function saveBroadcastNotification(){
-  const active = document.getElementById('bcActive')?.checked || false;
-  const message = document.getElementById('bcMessage')?.value.trim() || '';
-  const type = document.getElementById('bcType')?.value || 'gold';
-  const link = document.getElementById('bcLink')?.value.trim() || '';
-  const linkLabel = document.getElementById('bcLinkLabel')?.value.trim() || '';
-  const errEl = document.getElementById('broadcastErr');
-  const btn = document.getElementById('saveBroadcastBtn');
-
-  if(errEl){ errEl.classList.remove('show'); errEl.textContent = ''; }
-
-  if(active && !message){
-    if(errEl){ errEl.textContent = 'Please enter a notification message before enabling.'; errEl.classList.add('show'); }
-    showToast('Please enter a notification message.', 'err');
-    return;
-  }
-
-  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Publishing…'; }
-
-  try {
-    await db.collection('settings').doc('broadcast').set({
-      active,
-      message,
-      type,
-      link,
-      linkLabel,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-    updateBroadcastStatusBadge(active);
-    const timeEl = document.getElementById('broadcastUpdatedTime');
-    if(timeEl) timeEl.textContent = 'Last updated: Just now';
-
-    if(active){
-      showToast('Notification published! All website visitors can now see it 📢');
-    } else {
-      showToast('Notification saved as inactive.');
-    }
-  } catch(err) {
-    console.error('Failed to save broadcast:', err);
-    if(errEl){ errEl.textContent = 'Failed to publish: ' + err.message; errEl.classList.add('show'); }
-    showToast('Failed to save notification.', 'err');
-  } finally {
-    if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fa fa-paper-plane"></i> Publish Notification to All'; }
-  }
-}
-window.saveBroadcastNotification = saveBroadcastNotification;
-
-async function disableBroadcastNotification(){
-  const act = document.getElementById('bcActive');
-  if(act) act.checked = false;
-  try {
-    await db.collection('settings').doc('broadcast').set({
-      active: false,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-    updateBroadcastStatusBadge(false);
-    showToast('Notification turned off for all users 🚫');
-  } catch(e){
-    showToast('Failed to disable notification.', 'err');
-  }
-}
-window.disableBroadcastNotification = disableBroadcastNotification;
 
 function loadPromoSettings(){
   db.collection('settings').doc('promo').get().then(doc=>{
@@ -243,382 +87,102 @@ function loadPricingSettings(){
     globalPricing = {
       goldPrice: Number(data.goldPrice) || 0,
       silverPrice: Number(data.silverPrice) || 0,
+      makingCharges: Number(data.makingCharges) || 0,
       gst: Number(data.gst) || 0
     };
-    const gp = globalPricing.goldPrice || '';
-    const sp = globalPricing.silverPrice || '';
-    const gstVal = globalPricing.gst || '';
-
-    const el = id => document.getElementById(id);
-    if(el('priceGold')) el('priceGold').value = gp;
-    if(el('priceSilver')) el('priceSilver').value = sp;
-    if(el('priceGst')) el('priceGst').value = gstVal;
-
-    if(el('settingsPriceGold')) el('settingsPriceGold').value = gp;
-    if(el('settingsPriceSilver')) el('settingsPriceSilver').value = sp;
-    if(el('settingsPriceGst')) el('settingsPriceGst').value = gstVal;
-
-    updatePricingDisplayPills(gp, sp);
+    document.getElementById('priceGold').value = globalPricing.goldPrice || '';
+    document.getElementById('priceSilver').value = globalPricing.silverPrice || '';
+    document.getElementById('priceMakingCharges').value = globalPricing.makingCharges || '';
+    document.getElementById('priceGst').value = globalPricing.gst || '';
     applyPricingToProductForm();
   }).catch(err=>{ console.error('Failed to load pricing settings', err); });
 }
 
-async function savePricingSettings(fromSettingsTab = false){
-  const goldPrice = parseFloat(document.getElementById(fromSettingsTab ? 'settingsPriceGold' : 'priceGold')?.value);
-  const silverPrice = parseFloat(document.getElementById(fromSettingsTab ? 'settingsPriceSilver' : 'priceSilver')?.value);
-  const gst = parseFloat(document.getElementById(fromSettingsTab ? 'settingsPriceGst' : 'priceGst')?.value);
-  const errEl = document.getElementById(fromSettingsTab ? 'settingsRateStatus' : 'pricingFormErr');
-  if(errEl) { errEl.classList.remove('show'); errEl.textContent=''; errEl.style.display='none'; }
-
-  if(!Number.isFinite(goldPrice) || !Number.isFinite(silverPrice) || !Number.isFinite(gst) || goldPrice<=0 || silverPrice<=0 || gst<0){
-    const msg = 'Please enter valid gold price, silver price, and GST percentage.';
-    if(errEl){ errEl.textContent = msg; errEl.classList.add('show'); errEl.style.display='block'; }
-    showToast(msg, 'err');
-    return;
-  }
-
-  const btn = document.getElementById('savePricingBtn');
-  if(btn){ btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i> Updating products…'; }
+async function savePricingSettings(){
+  const goldPrice = parseFloat(document.getElementById('priceGold').value);
+  const silverPrice = parseFloat(document.getElementById('priceSilver').value);
+  const makingCharges = parseFloat(document.getElementById('priceMakingCharges').value);
+  const gst = parseFloat(document.getElementById('priceGst').value);
+  const errEl=document.getElementById('pricingFormErr'); errEl.classList.remove('show'); errEl.textContent='';
+  if(!Number.isFinite(goldPrice) || !Number.isFinite(silverPrice) || !Number.isFinite(makingCharges) || !Number.isFinite(gst) || goldPrice<=0 || silverPrice<=0 || makingCharges<0 || gst<0){ errEl.textContent='Enter valid pricing values.'; errEl.classList.add('show'); return; }
+  const btn=document.getElementById('savePricingBtn'); btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i> Saving…';
   try{
     await db.collection('settings').doc('pricing').set({
-      goldPrice, silverPrice, gst,
+      goldPrice, silverPrice, makingCharges, gst,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    globalPricing = { ...(globalPricing || {}), goldPrice, silverPrice, gst };
-
-    ['priceGold','settingsPriceGold'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=goldPrice; });
-    ['priceSilver','settingsPriceSilver'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=silverPrice; });
-    ['priceGst','settingsPriceGst'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=gst; });
-
-    updatePricingDisplayPills(goldPrice, silverPrice);
-    await updateAllProductsPricing(goldPrice, silverPrice, gst);
-    showToast('Pricing saved! All gold & silver product prices updated automatically ✨');
+    });
+    globalPricing = { goldPrice, silverPrice, makingCharges, gst };
+    await updateAllProductsPricing(goldPrice, silverPrice, makingCharges, gst);
+    showToast('Pricing saved and product prices updated.');
     applyPricingToProductForm();
-  }catch(err){
-    console.error('Failed to save pricing settings', err);
-    if(errEl){ errEl.textContent = 'Save failed: ' + err.message; errEl.classList.add('show'); errEl.style.display='block'; }
-    showToast('Failed to save pricing.', 'err');
-  }finally{
-    if(btn){ btn.disabled=false; btn.innerHTML='<i class="fa fa-save"></i> Save Pricing Settings'; }
-  }
+  }catch(err){ console.error('Failed to save pricing settings', err); errEl.textContent='Save failed: '+err.message; errEl.classList.add('show'); }
+  finally{ btn.disabled=false; btn.innerHTML='<i class="fa fa-save"></i> Save Pricing Settings'; }
 }
-window.savePricingSettings = savePricingSettings;
-window.savePricingFromSettings = () => savePricingSettings(true);
 
-function calculateProductPrice(category, purity, weight, goldPrice, silverPrice){
-  const w = parseFloat(weight) || 0;
-  if(category === 'gold' && goldPrice > 0){
+async function updateAllProductsPricing(goldPrice, silverPrice, makingCharges, gst){
+  const snap = await db.collection('products').get();
+  if(snap.empty) return;
+  let batch = db.batch();
+  let opCount = 0;
+  const commits = [];
+  snap.docs.forEach(doc=>{
+    const data = doc.data();
+    const updates = { makingCharges, gst };
+    if(data.category==='gold') updates.price = goldPrice;
+    else if(data.category==='silver') updates.price = silverPrice;
+    batch.update(doc.ref, updates);
+    opCount += 1;
+    if(opCount === 450){ commits.push(batch.commit()); batch = db.batch(); opCount = 0; }
+  });
+  if(opCount > 0) commits.push(batch.commit());
+  await Promise.all(commits);
+}
+
+function getGlobalProductPrice(category, purity){
+  if(!globalPricing) return null;
+  if(category==='gold' && globalPricing.goldPrice > 0){
     const purityFactors = {
-      '24K': 1.0,
-      '22K': 0.916,
-      '18K': 0.750,
-      '14K': 0.583,
+      '24K': 1,
+      '22K': 0.917,
+      '18K': 0.75,
+      '14K': 0.582,
       '9K': 0.375
     };
-    const factor = purityFactors[purity] !== undefined ? purityFactors[purity] : 0.916;
-    const ratePerGram = goldPrice * factor;
-    return w > 0 ? Math.round(w * ratePerGram) : Math.round(ratePerGram);
+    const factor = purityFactors[purity] ?? 1;
+    return Math.round(globalPricing.goldPrice * factor * 100) / 100;
   }
-  if(category === 'silver' && silverPrice > 0){
+  if(category==='silver' && globalPricing.silverPrice > 0){
     const purityFactors = {
-      'Pure Silver': 1.0,
+      'Pure Silver': 1,
       'Silver': 0.925,
       '925 Silver': 0.925,
       'Silver 925': 0.925,
       'Sterling Silver': 0.925,
       '925': 0.925
     };
-    const factor = purityFactors[purity] !== undefined ? purityFactors[purity] : 0.925;
-    const ratePerGram = silverPrice * factor;
-    return w > 0 ? Math.round(w * ratePerGram) : Math.round(ratePerGram);
+    const factor = purityFactors[purity] ?? 1;
+    return Math.round(globalPricing.silverPrice * factor * 100) / 100;
   }
   return null;
 }
-window.calculateProductPrice = calculateProductPrice;
-
-async function updateAllProductsPricing(goldPrice, silverPrice, gst){
-  const snap = await db.collection('products').get();
-  if(snap.empty) return;
-  let batch = db.batch();
-  let opCount = 0;
-  const commits = [];
-
-  snap.docs.forEach(doc=>{
-    const data = doc.data();
-    const updates = {};
-    if(gst !== undefined && Number.isFinite(gst)) updates.gst = gst;
-
-    if(data.category === 'gold' && goldPrice > 0){
-      const computedPrice = calculateProductPrice('gold', data.purity, data.weight, goldPrice, silverPrice);
-      if(computedPrice !== null){
-        updates.price = computedPrice;
-        updates.basePrice = computedPrice;
-      }
-    } else if(data.category === 'silver' && silverPrice > 0){
-      const computedPrice = calculateProductPrice('silver', data.purity, data.weight, goldPrice, silverPrice);
-      if(computedPrice !== null){
-        updates.price = computedPrice;
-        updates.basePrice = computedPrice;
-      }
-    }
-
-    if(Object.keys(updates).length > 0){
-      batch.update(doc.ref, updates);
-      opCount += 1;
-      if(opCount === 450){
-        commits.push(batch.commit());
-        batch = db.batch();
-        opCount = 0;
-      }
-    }
-  });
-
-  if(opCount > 0) commits.push(batch.commit());
-  await Promise.all(commits);
-}
-
-function updatePricingDisplayPills(gold24k, silver) {
-  const g = Number(gold24k) || 0;
-  const s = Number(silver) || 0;
-  const g22 = Math.round(g * 0.916);
-
-  const el24k = document.getElementById('displayRate24k');
-  const el22k = document.getElementById('displayRate22k');
-  const elSil = document.getElementById('displayRateSilver');
-  if (el24k) el24k.textContent = g > 0 ? `₹${g}/g` : '₹0/g';
-  if (el22k) el22k.textContent = g > 0 ? `₹${g22}/g` : '₹0/g';
-  if (elSil) elSil.textContent = s > 0 ? `₹${s}/g` : '₹0/g';
-
-  const hintGold = document.getElementById('dashGold22kHint');
-  const hintSil = document.getElementById('dashSilverHint');
-  if (hintGold) hintGold.textContent = g > 0 ? `22K (Jewellery standard): ₹${g22}/g` : '';
-  if (hintSil) hintSil.textContent = s > 0 ? `Silver: ₹${s}/g` : '';
-}
-window.updatePricingDisplayPills = updatePricingDisplayPills;
-
-async function fetchLiveMarketRates(autoSave = false) {
-  const showBanner = (text, isSuccess) => {
-    ['pricingLiveBanner', 'settingsRateStatus'].forEach(id => {
-      const el = document.getElementById(id);
-      if(!el) return;
-      el.style.display = 'block';
-      el.style.background = isSuccess ? 'rgba(34,197,94,.15)' : 'rgba(239,68,68,.15)';
-      el.style.border = isSuccess ? '1px solid rgba(34,197,94,.3)' : '1px solid rgba(239,68,68,.3)';
-      el.style.color = isSuccess ? '#86efac' : '#fca5a5';
-      el.innerHTML = text;
-    });
-  };
-
-  showBanner('<i class="fa fa-spinner fa-spin"></i> Fetching live precious metals rates (INR)...', true);
-  showToast('Fetching live market rates...');
-
-  try {
-    let goldRatePerGram = 0;
-    let silverRatePerGram = 0;
-    let sourceUsed = '';
-
-    try {
-      const [goldRes, silverRes, inrRes] = await Promise.all([
-        fetch('https://api.gold-api.com/price/XAU').then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch('https://api.gold-api.com/price/XAG').then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch('https://open.er-api.com/v6/latest/USD').then(r => r.ok ? r.json() : null).catch(() => null)
-      ]);
-
-      const inrRate = inrRes?.rates?.INR || 86.5;
-      const troyOunceToGram = 31.1034768;
-      const indiaDomesticMultiplier = 1.11;
-
-      if (goldRes?.price) {
-        const rawGoldGram = (goldRes.price / troyOunceToGram) * inrRate;
-        goldRatePerGram = Math.round(rawGoldGram * indiaDomesticMultiplier);
-      }
-      if (silverRes?.price) {
-        const rawSilverGram = (silverRes.price / troyOunceToGram) * inrRate;
-        silverRatePerGram = Math.round(rawSilverGram * indiaDomesticMultiplier * 10) / 10;
-      }
-      if (goldRatePerGram > 0 && silverRatePerGram > 0) {
-        sourceUsed = 'Live Global Spot + Domestic Bullion Benchmark';
-      }
-    } catch(e) {
-      console.warn('Spot API fetch failed, trying fallback...', e);
-    }
-
-    if (!goldRatePerGram || !silverRatePerGram) {
-      goldRatePerGram = 7520;
-      silverRatePerGram = 98;
-      sourceUsed = 'Indian Bullion Market Benchmark (Estimated)';
-    }
-
-    const gold22k = Math.round(goldRatePerGram * 0.916);
-
-    ['priceGold', 'settingsPriceGold'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = goldRatePerGram;
-    });
-    ['priceSilver', 'settingsPriceSilver'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = silverRatePerGram;
-    });
-
-    updatePricingDisplayPills(goldRatePerGram, silverRatePerGram);
-
-    const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-    showBanner(`<strong>✓ Rates Fetched:</strong> 24K Gold: <strong>₹${goldRatePerGram}/g</strong> (22K: ₹${gold22k}/g) · Silver: <strong>₹${silverRatePerGram}/g</strong> <span style="opacity:.8">(${sourceUsed} · at ${now})</span>`, true);
-
-    if (autoSave) {
-      await savePricingSettings(false);
-      showToast(`⚡ Live rates saved! All products updated automatically.`);
-    } else {
-      showToast(`Live rates loaded. Click "Save Pricing Settings" to update products.`);
-    }
-  } catch (err) {
-    console.error('Rate fetch failed:', err);
-    showBanner(`Failed to fetch live rates: ${err.message}. You can enter prices manually.`, false);
-    showToast('Failed to fetch live rates.', 'err');
-  }
-}
-window.fetchLiveMarketRates = fetchLiveMarketRates;
-
-async function updateAdminEmail() {
-  const user = auth.currentUser;
-  const newEmail = document.getElementById('newAdminEmail')?.value.trim();
-  const pass = document.getElementById('confirmPassForEmail')?.value;
-  const msgEl = document.getElementById('emailChangeMsg');
-  const btn = document.getElementById('updateEmailBtn');
-
-  if (msgEl) { msgEl.classList.remove('show'); msgEl.textContent = ''; msgEl.style.display = 'none'; }
-
-  if (!user) { showToast('Not logged in.', 'err'); return; }
-  if (!newEmail || !newEmail.includes('@')) {
-    if (msgEl) { msgEl.textContent = 'Please enter a valid new email address.'; msgEl.classList.add('show'); msgEl.style.display = 'block'; }
-    return;
-  }
-  if (!pass) {
-    if (msgEl) { msgEl.textContent = 'Please enter your current password to confirm this change.'; msgEl.classList.add('show'); msgEl.style.display = 'block'; }
-    return;
-  }
-
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Updating email…';
-
-  try {
-    const credential = firebase.auth.EmailAuthProvider.credential(user.email, pass);
-    await user.reauthenticateWithCredential(credential);
-    await user.updateEmail(newEmail);
-
-    await db.collection('settings').doc('admin').set({
-      adminEmail: newEmail,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    const sb = document.getElementById('sidebarEmail');
-    if (sb) sb.textContent = newEmail;
-    const cd = document.getElementById('currentEmailDisplay');
-    if (cd) cd.value = newEmail;
-    document.getElementById('newAdminEmail').value = '';
-    document.getElementById('confirmPassForEmail').value = '';
-
-    showToast('Admin email successfully changed to ' + newEmail + '! ✨');
-    if (msgEl) {
-      msgEl.style.display = 'block';
-      msgEl.style.background = 'rgba(34,197,94,.15)';
-      msgEl.style.borderColor = 'rgba(34,197,94,.3)';
-      msgEl.style.color = '#86efac';
-      msgEl.textContent = '✓ Admin email updated to ' + newEmail;
-    }
-  } catch (err) {
-    console.error('Email change error:', err);
-    let message = err.message;
-    if (err.code === 'auth/wrong-password') message = 'Current password is incorrect.';
-    else if (err.code === 'auth/email-already-in-use') message = 'This email is already in use by another account.';
-    else if (err.code === 'auth/requires-recent-login') message = 'Please log out and log in again before changing email.';
-    if (msgEl) { msgEl.textContent = message; msgEl.classList.add('show'); msgEl.style.display = 'block'; }
-    showToast(message, 'err');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fa fa-check"></i> Update Admin Email';
-  }
-}
-window.updateAdminEmail = updateAdminEmail;
-
-async function updateAdminPassword() {
-  const user = auth.currentUser;
-  const oldPass = document.getElementById('oldPasswordInp')?.value;
-  const newPass = document.getElementById('newPasswordInp')?.value;
-  const confirmPass = document.getElementById('confirmNewPasswordInp')?.value;
-  const msgEl = document.getElementById('passwordChangeMsg');
-  const btn = document.getElementById('updatePassBtn');
-
-  if (msgEl) { msgEl.classList.remove('show'); msgEl.textContent = ''; msgEl.style.display = 'none'; }
-
-  if (!user) { showToast('Not logged in.', 'err'); return; }
-  if (!oldPass) {
-    if (msgEl) { msgEl.textContent = 'Please enter your current password.'; msgEl.classList.add('show'); msgEl.style.display = 'block'; }
-    return;
-  }
-  if (!newPass || newPass.length < 6) {
-    if (msgEl) { msgEl.textContent = 'New password must be at least 6 characters.'; msgEl.classList.add('show'); msgEl.style.display = 'block'; }
-    return;
-  }
-  if (newPass !== confirmPass) {
-    if (msgEl) { msgEl.textContent = 'New passwords do not match.'; msgEl.classList.add('show'); msgEl.style.display = 'block'; }
-    return;
-  }
-
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Updating password…';
-
-  try {
-    const credential = firebase.auth.EmailAuthProvider.credential(user.email, oldPass);
-    await user.reauthenticateWithCredential(credential);
-    await user.updatePassword(newPass);
-
-    document.getElementById('oldPasswordInp').value = '';
-    document.getElementById('newPasswordInp').value = '';
-    document.getElementById('confirmNewPasswordInp').value = '';
-
-    showToast('Admin password updated successfully! 🔒');
-    if (msgEl) {
-      msgEl.style.display = 'block';
-      msgEl.style.background = 'rgba(34,197,94,.15)';
-      msgEl.style.borderColor = 'rgba(34,197,94,.3)';
-      msgEl.style.color = '#86efac';
-      msgEl.textContent = '✓ Password updated successfully!';
-    }
-  } catch (err) {
-    console.error('Password change error:', err);
-    let message = err.message;
-    if (err.code === 'auth/wrong-password') message = 'Current password is incorrect.';
-    else if (err.code === 'auth/weak-password') message = 'Password is too weak. Use at least 6 characters.';
-    else if (err.code === 'auth/requires-recent-login') message = 'Please log out and log in again before changing password.';
-    if (msgEl) { msgEl.textContent = message; msgEl.classList.add('show'); msgEl.style.display = 'block'; }
-    showToast(message, 'err');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fa fa-key"></i> Update Password';
-  }
-}
-window.updateAdminPassword = updateAdminPassword;
 
 function applyPricingToProductForm(){
   if(!globalPricing) return;
   const priceEl = document.getElementById('pPrice');
+  const makingEl = document.getElementById('pMakingCharges');
   const gstEl = document.getElementById('pGst');
+  if(makingEl && Number.isFinite(globalPricing.makingCharges)){
+    makingEl.value = globalPricing.makingCharges;
+  }
   if(gstEl && Number.isFinite(globalPricing.gst)){
     gstEl.value = globalPricing.gst;
   }
   const cat = document.getElementById('pCat')?.value;
-  if(!cat) return;
+  if(!priceEl || !cat) return;
   const purity = document.getElementById('pPurity')?.value;
-  const weight = document.getElementById('pWeight')?.value;
-  const calculatedPrice = calculateProductPrice(cat, purity, weight, globalPricing.goldPrice, globalPricing.silverPrice);
-  if(calculatedPrice !== null && priceEl){
-    priceEl.value = calculatedPrice;
-    livePreview();
-  }
+  const price = getGlobalProductPrice(cat, purity);
+  if(price !== null){ priceEl.value = price; }
 }
-window.applyPricingToProductForm = applyPricingToProductForm;
 
 function setupLoginForm(){
   document.getElementById('adminLoginForm')?.addEventListener('submit',async e=>{
@@ -626,25 +190,9 @@ function setupLoginForm(){
     const email=document.getElementById('gateEmail').value.trim(), pass=document.getElementById('gatePassword').value;
     const btn=document.getElementById('gateBtn'), errEl=document.getElementById('gate-err');
     errEl.classList.remove('show');
-    const dynamicAdminEmail = await getEffectiveAdminEmail();
-    if(email!==dynamicAdminEmail && email!==ADMIN_EMAIL){ showGateErr('Access denied. Invalid admin email.'); return; }
+    if(email!==ADMIN_EMAIL){ showGateErr('Access denied. Invalid admin email.'); return; }
     btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i> Verifying…';
     try{ await auth.signInWithEmailAndPassword(email,pass); }
-    catch(err){
-      console.error('Admin login error:', err);
-      const m={
-        'auth/wrong-password':'Incorrect password.',
-        'auth/user-not-found':'User not found. You must create this user in Firebase Console → Authentication → Users.',
-        'auth/invalid-credential':'Invalid credentials. Check email and password.',
-        'auth/too-many-requests':'Too many attempts. Try again later.',
-        'auth/operation-not-allowed':'Email/Password sign-in is disabled in Firebase Console → Authentication → Sign-in method.',
-        'auth/unauthorized-domain':'Domain not authorized. Please run on http://localhost:3000 (not file://).'
-      };
-      showGateErr(m[err.code] || `Login failed: ${err.message || err.code}`);
-    }
-    finally{ btn.disabled=false; btn.innerHTML='<i class="fa fa-sign-in-alt"></i> Enter Dashboard'; }
-  });
-}
     catch(err){
       console.error('Admin login error:', err);
       const m={
@@ -756,6 +304,92 @@ function renderRecent(){
   }).join('');
 }
 
+// ── REALTIME ADMIN ALERTS & AUDIO NOTIFICATIONS ────────────────
+let isFirstOrdersSnapshot = true;
+const previousOrderState = new Map();
+let adminNotificationsList = [];
+
+function playAlertChime(type = 'new'){
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if(!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    if(type === 'cancel'){
+      // Lower alert tone for cancel
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 0.35);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } else {
+      // Cheerful ascending chime for new order
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.14); // A5
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.45);
+    }
+  } catch(e) {
+    console.log('Audio chime unavailable:', e);
+  }
+}
+
+function addAdminNotification(notif){
+  adminNotificationsList.unshift(notif);
+  renderAdminNotificationsUI();
+}
+
+function renderAdminNotificationsUI(){
+  const badge = document.getElementById('adminNotifBadge');
+  const listEl = document.getElementById('adminNotifList');
+  if(!badge || !listEl) return;
+  
+  if(adminNotificationsList.length > 0){
+    badge.textContent = adminNotificationsList.length;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+  
+  if(adminNotificationsList.length === 0){
+    listEl.innerHTML = `<p style="text-align:center;padding:16px;color:var(--muted);font-size:.78rem">No new notifications</p>`;
+    return;
+  }
+  
+  listEl.innerHTML = adminNotificationsList.map(n => `
+    <div style="padding:10px 12px;border-bottom:1px solid var(--border);border-radius:6px;background:${n.type==='cancel'?'rgba(239,68,68,.1)':'rgba(212,175,55,.08)'};margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <strong style="font-size:.82rem;color:${n.type==='cancel'?'#fc8181':'var(--gold2)'}">${esc(n.title)}</strong>
+        <span style="font-size:.68rem;color:var(--muted)">${esc(n.time||'')}</span>
+      </div>
+      <p style="font-size:.76rem;color:var(--text);margin-top:2px">${esc(n.desc)}</p>
+    </div>
+  `).join('');
+}
+
+function toggleAdminNotifMenu(){
+  const menu = document.getElementById('adminNotifDropdown');
+  if(menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+window.toggleAdminNotifMenu = toggleAdminNotifMenu;
+
+function clearAdminNotifications(){
+  adminNotificationsList = [];
+  renderAdminNotificationsUI();
+  const menu = document.getElementById('adminNotifDropdown');
+  if(menu) menu.style.display = 'none';
+}
+window.clearAdminNotifications = clearAdminNotifications;
+
 function listenOrders(){
   if(unsubOrders) unsubOrders();
   const tb=document.getElementById('ordersTbody');
@@ -764,10 +398,53 @@ function listenOrders(){
   const tryListen = (ordered)=>{
     const query = ordered ? db.collection('orders').orderBy('createdAt','desc') : db.collection('orders');
     unsubOrders = query.onSnapshot(snap=>{
-      allOrders = snap.docs.map(doc=>({id:doc.id,...doc.data()}));
+      const newOrders = snap.docs.map(doc=>({id:doc.id,...doc.data()}));
       if(!ordered){
-        allOrders.sort((a,b)=>{ const ta=a.createdAt?.toMillis?.()||0, tb=b.createdAt?.toMillis?.()||0; return tb-ta; });
+        newOrders.sort((a,b)=>{ const ta=a.createdAt?.toMillis?.()||0, tb=b.createdAt?.toMillis?.()||0; return tb-ta; });
       }
+
+      if(!isFirstOrdersSnapshot){
+        snap.docChanges().forEach(change => {
+          const doc = change.doc;
+          const data = doc.data();
+          const orderId = doc.id;
+          const customerName = getOrderDisplayName(data);
+          const totalFormatted = formatPrice(data.total ?? data.grandTotal ?? 0);
+          const timeNow = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+          if(change.type === 'added' && !previousOrderState.has(orderId)){
+            // NEW ORDER RECEIVED!
+            playAlertChime('new');
+            addAdminNotification({
+              type: 'new',
+              title: 'New Order Received! 🛒',
+              desc: `${customerName} placed order #${orderId.slice(-6)} for ${totalFormatted}`,
+              time: timeNow
+            });
+            showToast(`🔔 New Order from ${customerName} (${totalFormatted})!`);
+          } else if(change.type === 'modified'){
+            const oldStatus = previousOrderState.get(orderId);
+            const newStatus = normalizeOrderStatus(data.status);
+            if(oldStatus !== 'cancelled' && newStatus === 'cancelled'){
+              // ORDER CANCELLED!
+              playAlertChime('cancel');
+              addAdminNotification({
+                type: 'cancel',
+                title: 'Order Cancelled ⚠️',
+                desc: `Order #${orderId.slice(-6)} from ${customerName} was cancelled`,
+                time: timeNow
+              });
+              showToast(`⚠️ Order #${orderId.slice(-6)} was cancelled!`, 'err');
+            }
+          }
+        });
+      }
+
+      isFirstOrdersSnapshot = false;
+      previousOrderState.clear();
+      newOrders.forEach(o => previousOrderState.set(o.id, normalizeOrderStatus(o.status)));
+
+      allOrders = newOrders;
       renderOrdersTable(allOrders);
     }, err=>{
       console.error('Orders listener error:', err);
@@ -798,7 +475,8 @@ function getOrderStatusLabel(status){
     'payment completed': 'Payment Completed',
     processing: 'Processing',
     'ready to dispatch': 'Ready to Dispatch',
-    delivered: 'Delivered'
+    delivered: 'Delivered',
+    cancelled: 'Cancelled'
   }[key] || status || 'Pending';
 }
 
@@ -810,6 +488,7 @@ function normalizeOrderStatus(input){
   if(key==='processing') return 'processing';
   if(key==='ready to dispatch' || key==='readytodispatch' || key==='ready_to_dispatch') return 'ready to dispatch';
   if(key==='delivered') return 'delivered';
+  if(key==='cancelled' || key==='cancel') return 'cancelled';
   return null;
 }
 
@@ -833,7 +512,7 @@ function renderOrdersTable(list){
 function orderToRow(order){
   const status = order.status || 'pending';
   const label = getOrderStatusLabel(status);
-  const badge = status==='pending' ? 'badge-gold' : status==='confirmed' || status==='delivered' ? 'badge-green' : status==='payment completed' ? 'badge-blue' : 'badge-gray';
+  const badge = status==='pending' ? 'badge-gold' : status==='confirmed' || status==='delivered' ? 'badge-green' : status==='payment completed' ? 'badge-blue' : status==='cancelled' ? 'badge-red' : 'badge-gray';
   const when = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'}) : '–';
   const customer = esc(getOrderDisplayName(order));
   const emailInfo = order.userEmail ? esc(order.userEmail) : esc(order.address?.slice(0,24) || order.id || 'Order');
@@ -1083,8 +762,37 @@ async function submitOrderStatusUpdate(){
   }
   try{
     await db.collection('orders').doc(orderId).update(updates);
+    
+    // Send realtime notification record for the customer
+    const order = allOrders.find(o => o.id === orderId);
+    if(order && order.userId){
+      const statusTitleMap = {
+        'confirmed': 'Order Confirmed! 🎉',
+        'payment completed': 'Payment Completed 💳',
+        'processing': 'Order Processing ⏳',
+        'ready to dispatch': 'Ready to Dispatch 📦',
+        'delivered': 'Order Delivered ✨',
+        'cancelled': 'Order Cancelled ❌'
+      };
+      const title = statusTitleMap[status] || `Order Update: ${getOrderStatusLabel(status)}`;
+      const message = status === 'ready to dispatch' && updates.dispatchDate
+        ? `Your order #${orderId.slice(-6)} is ready for dispatch (Scheduled: ${updates.dispatchDate}).`
+        : `Your order #${orderId.slice(-6)} has been updated to "${getOrderStatusLabel(status)}".`;
+      
+      db.collection('notifications').add({
+        userId: order.userId,
+        orderId: orderId,
+        title: title,
+        message: message,
+        status: status,
+        dispatchDate: updates.dispatchDate || null,
+        read: false,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).catch(e => console.warn('Could not save customer notification:', e));
+    }
+    
     document.getElementById('statusModal')?.classList.remove('show');
-    showToast('Order status updated.');
+    showToast(`Order status updated to "${getOrderStatusLabel(status)}" & customer notified.`);
   } catch(err){
     console.error('Failed to update order status:', err);
     showToast('Could not update order status.','err');
@@ -1185,7 +893,7 @@ async function saveProduct(){
   const makingCharges = makingPct;
   const errEl=document.getElementById('formErr'); errEl.classList.remove('show');
 
-  let finalProductId = productId || `Manti-${Math.floor(100000 + Math.random() * 900000)}-${Date.now().toString().slice(-5)}`;
+  let finalProductId = productId || `MANTI-${Math.floor(100000 + Math.random() * 900000)}-${Date.now().toString().slice(-5)}`;
   if(!name){errEl.textContent='Product name is required.';errEl.classList.add('show');return;}
   if(!price||price<=0){errEl.textContent='Enter a valid price.';errEl.classList.add('show');return;}
   if(!cat){errEl.textContent='Please select a category.';errEl.classList.add('show');return;}
@@ -1257,10 +965,6 @@ window.livePreview=livePreview;
 // Attach input listeners after DOM ready
 document.addEventListener('DOMContentLoaded',()=>{
   ['pName','pPrice','pMakingCharges','pGst','pWeight','pCat'].forEach(id=>document.getElementById(id)?.addEventListener('input',livePreview));
-  ['pWeight','pCat','pPurity'].forEach(id=>{
-    document.getElementById(id)?.addEventListener('input',applyPricingToProductForm);
-    document.getElementById(id)?.addEventListener('change',applyPricingToProductForm);
-  });
 });
 
 // ── SIZES ─────────────────────────────────────────────────────
@@ -1306,7 +1010,7 @@ function switchTab(name){
   document.querySelectorAll('.admin-nav-item[data-tab]').forEach(b=>b.classList.remove('active'));
   const s=document.getElementById('tab-'+name); if(s) s.classList.add('active');
   const b=document.querySelector(`.admin-nav-item[data-tab="${name}"]`); if(b) b.classList.add('active');
-  const titles={dashboard:'Dashboard',products:'All Products',orders:'New Orders',add:editingId?'Edit Product':'Add Product','customer-details':'Customer Details',settings:'Admin Settings'};
+  const titles={dashboard:'Dashboard',products:'All Products',orders:'New Orders',add:editingId?'Edit Product':'Add Product','customer-details':'Customer Details',settings:'Admin Settings & Live Rates'};
   const t=document.getElementById('adminPageTitle'); if(t) t.textContent=titles[name]||name;
   // Only reset the form when navigating AWAY from add tab (not to add tab)
   if(name==='dashboard'||name==='products'){ resetForm(); }
@@ -1314,13 +1018,8 @@ function switchTab(name){
   if(name==='products'){ renderTable(allProducts); }
   // Load customer details when switching to that tab
   if(name==='customer-details'){ cdLoadNotes(); }
-  if(name==='settings'){
-    if(auth.currentUser){
-      const cd = document.getElementById('currentEmailDisplay');
-      if(cd) cd.value = auth.currentUser.email;
-    }
-    loadPricingSettings();
-  }
+  // Load settings when switching to settings tab
+  if(name==='settings'){ loadAdminSettingsTab(); }
 }
 window.switchTab=switchTab;
 
@@ -1743,6 +1442,215 @@ window.cdDownloadNote = cdDownloadNote;
 window.cdFilterNotes = cdFilterNotes;
 window.cdLoadNotes = cdLoadNotes;
 window.cdSetCurrentUser = cdSetCurrentUser;
+
+// ────────────────────────────────────────────────────────────
+// ── LIVE PRICE AUTO-FETCHER & ACCOUNT MANAGEMENT ─────────────
+// ────────────────────────────────────────────────────────────
+async function fetchLiveMarketRates(autoSave = false){
+  const bannerDash = document.getElementById('pricingLiveBanner');
+  const bannerSettings = document.getElementById('settingsRateStatus');
+  const showBanner = (html, isErr = false, isSuccess = false) => {
+    [bannerDash, bannerSettings].forEach(b => {
+      if(!b) return;
+      b.style.display = 'block';
+      b.style.background = isErr ? 'rgba(239,68,68,.12)' : isSuccess ? 'rgba(34,197,94,.12)' : 'rgba(212,175,55,.15)';
+      b.style.color = isErr ? '#fc8181' : isSuccess ? '#4ade80' : 'var(--gold2)';
+      b.innerHTML = html;
+    });
+  };
+
+  showBanner('<i class="fa fa-spinner fa-spin"></i> Fetching live precious metals rates…');
+  
+  try {
+    const [goldRes, silverRes, inrRes] = await Promise.all([
+      fetch('https://api.gold-api.com/price/XAU').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('https://api.gold-api.com/price/XAG').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('https://open.er-api.com/v6/latest/USD').then(r=>r.ok?r.json():null).catch(()=>null)
+    ]);
+    
+    const usdInr = inrRes?.rates?.INR || 86.8;
+    let gold24kPerGram = 0;
+    let silverPerGram = 0;
+    
+    if(goldRes && goldRes.price){
+      // 1 troy oz = 31.1034768 grams. Domestic retail landed rate ~ 1.10 duty/charges factor
+      const spotPerGramUsd = goldRes.price / 31.1034768;
+      gold24kPerGram = Math.round(spotPerGramUsd * usdInr * 1.10);
+    } else {
+      gold24kPerGram = 7550;
+    }
+    
+    if(silverRes && silverRes.price){
+      const silverPerGramUsd = silverRes.price / 31.1034768;
+      silverPerGram = Math.round(silverPerGramUsd * usdInr * 1.12 * 10) / 10;
+    } else {
+      silverPerGram = 96;
+    }
+    
+    const gold22kPerGram = Math.round(gold24kPerGram * 0.916);
+    
+    ['priceGold', 'settingsPriceGold'].forEach(id => { const el = document.getElementById(id); if(el) el.value = gold24kPerGram; });
+    ['priceSilver', 'settingsPriceSilver'].forEach(id => { const el = document.getElementById(id); if(el) el.value = silverPerGram; });
+    
+    const d24 = document.getElementById('displayRate24k'); if(d24) d24.textContent = `₹${gold24kPerGram}/g`;
+    const d22 = document.getElementById('displayRate22k'); if(d22) d22.textContent = `₹${gold22kPerGram}/g`;
+    const dSil = document.getElementById('displayRateSilver'); if(dSil) dSil.textContent = `₹${silverPerGram}/g`;
+    
+    const h22 = document.getElementById('dashGold22kHint'); if(h22) h22.textContent = `22K (91.6%): ₹${gold22kPerGram}/g`;
+    const hSil = document.getElementById('dashSilverHint'); if(hSil) hSil.textContent = `Live spot rate per gram`;
+    
+    const timeStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    showBanner(`<i class="fa fa-check-circle"></i> Live Rates Fetched (${timeStr}): Gold 24K: ₹${gold24kPerGram}/g (22K: ₹${gold22kPerGram}/g) · Silver: ₹${silverPerGram}/g`, false, true);
+    
+    showToast(`Live rates fetched: Gold 24K ₹${gold24kPerGram}/g · Silver ₹${silverPerGram}/g`);
+    
+    if(autoSave){
+      await savePricingSettings();
+    }
+  } catch(err){
+    console.error('Error fetching live rates:', err);
+    showBanner('<i class="fa fa-triangle-exclamation"></i> Could not auto-fetch live rates. Please enter prices manually.', true);
+    showToast('Failed to auto-fetch rates. You can enter them manually.', 'err');
+  }
+}
+window.fetchLiveMarketRates = fetchLiveMarketRates;
+
+async function savePricingFromSettings(){
+  const g = parseFloat(document.getElementById('settingsPriceGold')?.value);
+  const s = parseFloat(document.getElementById('settingsPriceSilver')?.value);
+  const m = parseFloat(document.getElementById('settingsPriceMaking')?.value);
+  const gst = parseFloat(document.getElementById('settingsPriceGst')?.value);
+  
+  if(!Number.isFinite(g) || !Number.isFinite(s) || !Number.isFinite(m) || !Number.isFinite(gst) || g<=0 || s<=0 || m<0 || gst<0){
+    showToast('Enter valid pricing values.', 'err');
+    return;
+  }
+  
+  const pg = document.getElementById('priceGold'); if(pg) pg.value = g;
+  const ps = document.getElementById('priceSilver'); if(ps) ps.value = s;
+  const pm = document.getElementById('priceMakingCharges'); if(pm) pm.value = m;
+  const pgst = document.getElementById('priceGst'); if(pgst) pgst.value = gst;
+  
+  await savePricingSettings();
+}
+window.savePricingFromSettings = savePricingFromSettings;
+
+function loadAdminSettingsTab(){
+  const curUser = auth.currentUser;
+  const curEmailEl = document.getElementById('currentEmailDisplay');
+  if(curEmailEl && curUser) curEmailEl.value = curUser.email || '';
+  
+  if(globalPricing){
+    const sg = document.getElementById('settingsPriceGold'); if(sg && !sg.value) sg.value = globalPricing.goldPrice || '';
+    const ss = document.getElementById('settingsPriceSilver'); if(ss && !ss.value) ss.value = globalPricing.silverPrice || '';
+    const sm = document.getElementById('settingsPriceMaking'); if(sm && !sm.value) sm.value = globalPricing.makingCharges || '';
+    const sgst = document.getElementById('settingsPriceGst'); if(sgst && !sgst.value) sgst.value = globalPricing.gst || '';
+    
+    const d24 = document.getElementById('displayRate24k'); if(d24 && globalPricing.goldPrice) d24.textContent = `₹${globalPricing.goldPrice}/g`;
+    const d22 = document.getElementById('displayRate22k'); if(d22 && globalPricing.goldPrice) d22.textContent = `₹${Math.round(globalPricing.goldPrice * 0.916)}/g`;
+    const dSil = document.getElementById('displayRateSilver'); if(dSil && globalPricing.silverPrice) dSil.textContent = `₹${globalPricing.silverPrice}/g`;
+  }
+}
+window.loadAdminSettingsTab = loadAdminSettingsTab;
+
+async function updateAdminEmail(){
+  const user = auth.currentUser;
+  if(!user){ showToast('Not logged in.','err'); return; }
+  const newEmail = document.getElementById('newAdminEmail')?.value.trim();
+  const currentPass = document.getElementById('confirmPassForEmail')?.value;
+  const msgEl = document.getElementById('emailChangeMsg');
+  if(msgEl){ msgEl.classList.remove('show'); msgEl.textContent = ''; }
+  
+  if(!newEmail || !newEmail.includes('@')){
+    if(msgEl){ msgEl.textContent = 'Please enter a valid email address.'; msgEl.classList.add('show'); }
+    return;
+  }
+  if(!currentPass){
+    if(msgEl){ msgEl.textContent = 'Please enter your current password to confirm.'; msgEl.classList.add('show'); }
+    return;
+  }
+  
+  const btn = document.getElementById('updateEmailBtn');
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Updating…'; }
+  
+  try {
+    const cred = firebase.auth.EmailAuthProvider.credential(user.email, currentPass);
+    await user.reauthenticateWithCredential(cred);
+    await user.updateEmail(newEmail);
+    
+    await db.collection('settings').doc('admin').set({
+      adminEmail: newEmail,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    
+    const sEmail = document.getElementById('sidebarEmail'); if(sEmail) sEmail.textContent = newEmail;
+    const curDisplay = document.getElementById('currentEmailDisplay'); if(curDisplay) curDisplay.value = newEmail;
+    document.getElementById('newAdminEmail').value = '';
+    document.getElementById('confirmPassForEmail').value = '';
+    
+    showToast('Admin email updated successfully!');
+  } catch(err){
+    console.error('Update email failed:', err);
+    let errMsg = err.message || 'Failed to update email.';
+    if(err.code === 'auth/wrong-password') errMsg = 'Incorrect current password.';
+    if(err.code === 'auth/email-already-in-use') errMsg = 'This email is already in use.';
+    if(err.code === 'auth/requires-recent-login') errMsg = 'Please log out and log in again before changing email.';
+    if(msgEl){ msgEl.textContent = errMsg; msgEl.classList.add('show'); }
+    showToast(errMsg, 'err');
+  } finally {
+    if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fa fa-check"></i> Update Admin Email'; }
+  }
+}
+window.updateAdminEmail = updateAdminEmail;
+
+async function updateAdminPassword(){
+  const user = auth.currentUser;
+  if(!user){ showToast('Not logged in.','err'); return; }
+  const oldPass = document.getElementById('oldPasswordInp')?.value;
+  const newPass = document.getElementById('newPasswordInp')?.value;
+  const confirmPass = document.getElementById('confirmNewPasswordInp')?.value;
+  const msgEl = document.getElementById('passwordChangeMsg');
+  if(msgEl){ msgEl.classList.remove('show'); msgEl.textContent = ''; }
+  
+  if(!oldPass){
+    if(msgEl){ msgEl.textContent = 'Please enter your current password.'; msgEl.classList.add('show'); }
+    return;
+  }
+  if(!newPass || newPass.length < 6){
+    if(msgEl){ msgEl.textContent = 'New password must be at least 6 characters.'; msgEl.classList.add('show'); }
+    return;
+  }
+  if(newPass !== confirmPass){
+    if(msgEl){ msgEl.textContent = 'New passwords do not match.'; msgEl.classList.add('show'); }
+    return;
+  }
+  
+  const btn = document.getElementById('updatePassBtn');
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Updating…'; }
+  
+  try {
+    const cred = firebase.auth.EmailAuthProvider.credential(user.email, oldPass);
+    await user.reauthenticateWithCredential(cred);
+    await user.updatePassword(newPass);
+    
+    document.getElementById('oldPasswordInp').value = '';
+    document.getElementById('newPasswordInp').value = '';
+    document.getElementById('confirmNewPasswordInp').value = '';
+    
+    showToast('Password updated successfully! Keep your new password safe.');
+  } catch(err){
+    console.error('Update password failed:', err);
+    let errMsg = err.message || 'Failed to update password.';
+    if(err.code === 'auth/wrong-password') errMsg = 'Incorrect current password.';
+    if(err.code === 'auth/weak-password') errMsg = 'Password is too weak. Please use a stronger password.';
+    if(msgEl){ msgEl.textContent = errMsg; msgEl.classList.add('show'); }
+    showToast(errMsg, 'err');
+  } finally {
+    if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fa fa-key"></i> Update Password'; }
+  }
+}
+window.updateAdminPassword = updateAdminPassword;
+
 
 
 

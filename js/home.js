@@ -45,10 +45,12 @@ function listenPromo(){
 
 
 function onLogin(user){ currentUser=user; Cart.listen(user.uid); Cart.loadWish(user.uid); renderNavUser(user); renderProducts();
+  initCustomerNotifications(user.uid);
   // Track active user
   db.collection('activeUsers').doc(user.uid).set({lastSeen:firebase.firestore.FieldValue.serverTimestamp()});
 }
 function onLogout(){ 
+  stopCustomerNotifications();
   if(currentUser && currentUser.uid) db.collection('activeUsers').doc(currentUser.uid).delete();
   currentUser=null; Cart.stop(); renderNavUser(null); renderProducts();
 }

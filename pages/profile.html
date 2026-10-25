@@ -203,7 +203,19 @@
 <script>
 let currentUser=null;
 document.addEventListener('DOMContentLoaded',()=>{
-  Auth.init(u=>{currentUser=u;Cart.listen(u.uid);renderProfile(u);},()=>{currentUser=null;Cart.stop();renderLoggedOut();});
+  Auth.init(u=>{
+    currentUser=u;
+    Cart.listen(u.uid);
+    renderProfile(u);
+    startProfileOrderListener(u);
+    if(typeof initCustomerNotifications === 'function') initCustomerNotifications(u);
+  },()=>{
+    currentUser=null;
+    Cart.stop();
+    renderLoggedOut();
+    if(profileOrdersUnsub){ profileOrdersUnsub(); profileOrdersUnsub=null; }
+    if(typeof stopCustomerNotifications === 'function') stopCustomerNotifications();
+  });
   Auth.setupModal();Cart.init(()=>{});Cart.loadWish(null);
 });
 function renderProfile(user){
@@ -268,27 +280,68 @@ function renderLoggedOut(){
     <a href="collections.html" class="btn btn-outline btn-sm"><i class="fa fa-gem"></i> Browse Collection</a>
   </div>`;
 }
-async function doLogout(){await auth.signOut();showToast('Signed out! 👋');setTimeout(()=>window.location.href='../index.html',900);}
+let profileOrdersUnsub = null;
+
+async function doLogout(){
+  if(profileOrdersUnsub){ profileOrdersUnsub(); profileOrdersUnsub = null; }
+  stopCustomerNotifications();
+  await auth.signOut();
+  showToast('Signed out! 👋');
+  setTimeout(()=>window.location.href='../index.html',900);
+}
 
 function getProfileStepLabel(status){
   const key = (status||'pending').toString().trim().toLowerCase();
   return {
     pending: 'Pending',
-    confirmed: 'Confirm',
-    'payment completed': 'Payment Completed',
-    processing: 'Processing',
-    'ready to dispatch': 'Ready to Dispatch',
-    delivered: 'Delivered'
+    confirmed: 'Confirmed ✓',
+    'payment completed': 'Payment Completed 💳',
+    processing: 'Processing ⏳',
+    'ready to dispatch': 'Ready to Dispatch 📦',
+    delivered: 'Delivered ✨',
+    cancelled: 'Cancelled ❌'
   }[key] || 'Pending';
+}
+
+// Realtime order listener for profile page — auto-refreshes order history when status changes
+function startProfileOrderListener(user){
+  if(profileOrdersUnsub){ profileOrdersUnsub(); }
+  const prevStatuses = new Map();
+  let isFirst = true;
+  profileOrdersUnsub = db.collection('orders').where('userId','==',user.uid)
+    .onSnapshot(snap => {
+      if(isFirst){
+        snap.docs.forEach(d => prevStatuses.set(d.id, (d.data().status||'pending').toLowerCase()));
+        isFirst = false;
+        return;
+      }
+      let changed = false;
+      snap.docChanges().forEach(change => {
+        if(change.type === 'modified'){
+          const newStatus = (change.doc.data().status||'pending').toLowerCase();
+          const oldStatus = prevStatuses.get(change.doc.id);
+          if(oldStatus !== newStatus){
+            const label = getProfileStepLabel(newStatus);
+            showToast(`🔔 Order #${change.doc.id.slice(-6)}: ${label}`);
+            changed = true;
+          }
+          prevStatuses.set(change.doc.id, newStatus);
+        } else if(change.type === 'added'){
+          prevStatuses.set(change.doc.id, (change.doc.data().status||'pending').toLowerCase());
+        }
+      });
+      if(changed){ loadOrderHistory(user); }
+    }, err => console.warn('Profile order listener error:', err));
 }
 
 function renderOrderTimeline(order){
   const steps = [
-    {key:'confirmed', label:'Confirm'},
-    {key:'payment completed', label:'Payment Completed'},
-    {key:'processing', label:'Processing'},
-    {key:'ready to dispatch', label:'Ready to Dispatch'},
-    {key:'delivered', label:'Delivered'}
+    {key:'confirmed', label:'Confirmed ✓'},
+    {key:'payment completed', label:'Payment Completed 💳'},
+    {key:'processing', label:'Processing ⏳'},
+    {key:'ready to dispatch', label:'Ready to Dispatch 📦'},
+    {key:'delivered', label:'Delivered ✨'},
+    {key:'cancelled', label:'Cancelled ❌'}
   ];
   const currentKey = (order.status||'pending').toString().trim().toLowerCase();
   const currentIndex = steps.findIndex(step=>step.key===currentKey);

@@ -484,6 +484,23 @@
       <header class="admin-topbar">
         <h1 id="adminPageTitle">Dashboard</h1>
         <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+          <!-- Live Notification Bell -->
+          <div class="admin-notif-wrap" style="position:relative">
+            <button class="btn btn-outline btn-sm" id="adminNotifBtn" onclick="toggleAdminNotifMenu()" style="position:relative;padding:8px 12px" title="Notifications">
+              <i class="fa fa-bell"></i>
+              <span id="adminNotifBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;border-radius:50%;width:18px;height:18px;font-size:.65rem;display:flex;align-items:center;justify-content:center;font-weight:700">0</span>
+            </button>
+            <div id="adminNotifDropdown" class="admin-notif-dropdown" style="display:none;position:absolute;right:0;top:42px;width:320px;background:var(--card);border:1px solid var(--border2);border-radius:10px;box-shadow:var(--sh3);z-index:1000;overflow:hidden">
+              <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+                <strong style="font-size:.85rem"><i class="fa fa-bell" style="color:var(--gold2);margin-right:6px"></i>Live Order Alerts</strong>
+                <button onclick="clearAdminNotifications()" style="font-size:.72rem;color:var(--gold2);cursor:pointer;background:none;border:none">Clear all</button>
+              </div>
+              <div id="adminNotifList" style="max-height:280px;overflow-y:auto;padding:8px">
+                <p style="text-align:center;padding:16px;color:var(--muted);font-size:.78rem">No new notifications</p>
+              </div>
+            </div>
+          </div>
+
           <span id="adminDateBadge" style="font-size:.8rem;color:var(--muted)"></span>
           <a href="../index.html" class="btn btn-outline btn-sm" target="_blank"><i class="fa fa-external-link-alt"></i> View Store</a>
         </div>
@@ -543,7 +560,10 @@
                   <small id="dashSilverHint" style="color:var(--muted);font-size:.74rem;display:block;margin-top:4px"></small>
                 </div>
               </div>
-              <div class="form-group"><label>GST (%)</label><input type="number" id="priceGst" placeholder="e.g. 3" min="0" max="100"/></div>
+              <div class="form-grid-2">
+                <div class="form-group"><label>Making Charge (%)</label><input type="number" id="priceMakingCharges" placeholder="e.g. 5" min="0" max="100"/></div>
+                <div class="form-group"><label>GST (%)</label><input type="number" id="priceGst" placeholder="e.g. 3" min="0" max="100"/></div>
+              </div>
               <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
                 <button type="button" class="btn btn-primary btn-sm" id="savePricingBtn"><i class="fa fa-save"></i> Save Pricing Settings</button>
                 <span id="dashPricingUpdateBadge" style="font-size:.75rem;color:var(--muted);margin-left:auto"></span>
@@ -552,70 +572,17 @@
             </div>
           </div>
 
-          <!-- Broadcast Notification for All Users -->
-          <div class="admin-card">
-            <div class="admin-card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-              <div>
-                <h3><i class="fa fa-bullhorn" style="color:var(--gold2);margin-right:8px"></i>Broadcast Notification to All Users</h3>
-                <p style="font-size:.78rem;color:var(--muted);margin-top:2px">Show a live message or announcement notification to all website visitors</p>
-              </div>
-              <span id="broadcastLiveStatusBadge" class="badge badge-gray">Inactive</span>
-            </div>
+          <!-- Promo Code -->
+          <!-- <div class="admin-card">
+            <div class="admin-card-header"><h3><i class="fa fa-tag" style="color:var(--gold2);margin-right:8px"></i>Promo Code Setting</h3></div>
             <div class="admin-card-body">
-              <div class="form-group">
-                <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-                  <input type="checkbox" id="bcActive" style="width:18px;height:18px;accent-color:var(--gold2)" onchange="updateBroadcastPreview()"/>
-                  <span style="font-size:.9rem;font-weight:600;color:var(--text)">Show notification message on all website pages</span>
-                </label>
-              </div>
-
-              <div class="form-group">
-                <label>Notification Message <span class="req">*</span></label>
-                <textarea id="bcMessage" rows="2" class="admin-input" placeholder="e.g. ✨ Special Festival Offer: Flat 10% off on all gold jewellery! Order today." oninput="updateBroadcastPreview()"></textarea>
-              </div>
-
-              <div class="form-grid-2">
-                <div class="form-group">
-                  <label>Notification Style / Color</label>
-                  <select id="bcType" class="admin-input" onchange="updateBroadcastPreview()">
-                    <option value="gold">🌟 Gold Luxury (Offers & Highlights)</option>
-                    <option value="message">💬 Message Alert (General Announcement)</option>
-                    <option value="blue">ℹ️ Blue Notice (Updates & Information)</option>
-                    <option value="green">✨ Green Festive (Flash Sale & Discounts)</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>Action Link (Optional URL)</label>
-                  <input type="text" id="bcLink" class="admin-input" placeholder="e.g. collections.html or custom-order.html" oninput="updateBroadcastPreview()"/>
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label>Action Button Label (Optional)</label>
-                <input type="text" id="bcLinkLabel" class="admin-input" placeholder="e.g. Shop Now or View Details" oninput="updateBroadcastPreview()"/>
-              </div>
-
-              <!-- Live Preview -->
-              <div style="margin:16px 0">
-                <label style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:8px">Live Preview (How visitors will see your message)</label>
-                <div id="bcLivePreviewBox" style="padding:12px 20px;border-radius:8px;font-size:.84rem;text-align:center;border:1px solid rgba(212,175,55,.3);background:linear-gradient(135deg, #18140c 0%, #2a2010 50%, #18140c 100%);color:#f5ecd5;display:flex;align-items:center;justify-content:center;gap:8px">
-                  <i class="fa fa-gem" style="color:var(--gold2)"></i>
-                  <span id="bcPreviewText">Type a message above to preview it here…</span>
-                </div>
-              </div>
-
-              <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-                <button type="button" class="btn btn-primary btn-sm" id="saveBroadcastBtn" onclick="saveBroadcastNotification()">
-                  <i class="fa fa-paper-plane"></i> Publish Notification to All
-                </button>
-                <button type="button" class="btn btn-outline btn-sm" onclick="disableBroadcastNotification()">
-                  <i class="fa fa-eye-slash"></i> Turn Off Notification
-                </button>
-                <span id="broadcastUpdatedTime" style="font-size:.75rem;color:var(--muted);margin-left:auto"></span>
-              </div>
-              <div id="broadcastErr" class="err-msg" style="margin-top:12px"></div>
+              <div class="form-group"><label>Promo Code</label><input type="text" id="promoCode" placeholder="e.g. GOLD20"/></div>
+              <div class="form-group"><label>Promo Title</label><input type="text" id="promoTitleInput" placeholder="e.g. Get 20% off on gold"/></div>
+              <div class="form-group"><label>Promo Text</label><input type="text" id="promoText" placeholder="Use code at checkout..."/></div>
+              <button type="button" class="btn btn-primary btn-sm" id="savePromoBtn"><i class="fa fa-save"></i> Save Promo Settings</button>
+              <div id="promoFormErr" class="err-msg" style="margin-top:10px"></div>
             </div>
-          </div>
+          </div> -->
 
           <!-- Recent Products -->
           <div class="admin-card">
@@ -930,7 +897,10 @@
                 <div class="form-group"><label>Gold 24K Price (₹/g)</label><input type="number" id="settingsPriceGold" placeholder="e.g. 7450" min="0" step="0.01"/></div>
                 <div class="form-group"><label>Silver Price (₹/g)</label><input type="number" id="settingsPriceSilver" placeholder="e.g. 98" min="0" step="0.01"/></div>
               </div>
-              <div class="form-group"><label>GST (%)</label><input type="number" id="settingsPriceGst" placeholder="e.g. 3" min="0" max="100"/></div>
+              <div class="form-grid-2">
+                <div class="form-group"><label>Making Charge (%)</label><input type="number" id="settingsPriceMaking" placeholder="e.g. 5" min="0" max="100"/></div>
+                <div class="form-group"><label>GST (%)</label><input type="number" id="settingsPriceGst" placeholder="e.g. 3" min="0" max="100"/></div>
+              </div>
               <button type="button" class="btn btn-primary btn-sm" onclick="savePricingFromSettings()"><i class="fa fa-save"></i> Save Pricing Settings</button>
             </div>
           </div>
@@ -1031,7 +1001,7 @@
     </div>
     <div class="admin-card-body">
       <input type="hidden" id="statusModalOrderId" />
-      <div class="form-group"><label>Status</label><select id="statusSelect" class="admin-input" onchange="toggleDispatchField(this.value)"><option value="confirmed">Confirm</option><option value="payment completed">Payment Completed</option><option value="processing">Processing</option><option value="ready to dispatch">Ready to Dispatch</option><option value="delivered">Delivered</option></select></div>
+      <div class="form-group"><label>Status</label><select id="statusSelect" class="admin-input" onchange="toggleDispatchField(this.value)"><option value="confirmed">Confirm</option><option value="payment completed">Payment Completed</option><option value="processing">Processing</option><option value="ready to dispatch">Ready to Dispatch</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option></select></div>
       <div class="form-group" id="dispatchDateGroup" style="display:none;"><label>Dispatch Date</label><input type="date" id="dispatchDateInput" class="admin-input"/></div>
       <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
         <button type="button" class="btn btn-outline" onclick="document.getElementById('statusModal').classList.remove('show')">Cancel</button>

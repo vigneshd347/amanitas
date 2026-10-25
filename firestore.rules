@@ -23,6 +23,9 @@ service cloud.firestore {
       allow create: if true;
       allow read, update, delete: if request.auth != null;
     }
+    match /notifications/{notifId} {
+      allow read, write, create, delete: if true;
+    }
     match /customerNotes/{doc} {
       allow read, write, create, delete: if request.auth != null;
     }
