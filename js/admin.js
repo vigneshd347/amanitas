@@ -2,6 +2,7 @@
 // admin.js — Admin Dashboard Logic
 // ============================================================
 let allProducts=[],allOrders=[],editingId=null,deleteTargetId=null,deleteTargetType='product',productSizes=[],unsubProducts=null,unsubActiveUsers=null,unsubOrders=null,globalPricing={goldPrice:0,silverPrice:0,makingCharges:0,gst:0};
+let autoRateFetchInterval=null;
 
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('adminDateBadge').textContent = new Date().toLocaleDateString('en-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
@@ -44,6 +45,8 @@ function showDash(user){
   listenActiveUsers();
   // Initialize Customer Details feature with current user
   cdSetCurrentUser(user);
+  // Auto-fetch live gold & silver rates and update all products on login
+  startAutoRateFetch();
 }
 
 function loadPromoSettings(){
@@ -98,24 +101,29 @@ function loadPricingSettings(){
   }).catch(err=>{ console.error('Failed to load pricing settings', err); });
 }
 
-async function savePricingSettings(){
+async function savePricingSettings(updateProducts = false){
   const goldPrice = parseFloat(document.getElementById('priceGold').value);
   const silverPrice = parseFloat(document.getElementById('priceSilver').value);
-  const makingCharges = parseFloat(document.getElementById('priceMakingCharges').value);
-  const gst = parseFloat(document.getElementById('priceGst').value);
-  const errEl=document.getElementById('pricingFormErr'); errEl.classList.remove('show'); errEl.textContent='';
-  if(!Number.isFinite(goldPrice) || !Number.isFinite(silverPrice) || !Number.isFinite(makingCharges) || !Number.isFinite(gst) || goldPrice<=0 || silverPrice<=0 || makingCharges<0 || gst<0){ errEl.textContent='Enter valid pricing values.'; errEl.classList.add('show'); return; }
-  const btn=document.getElementById('savePricingBtn'); btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i> Saving…';
+  const makingCharges = parseFloat(document.getElementById('priceMakingCharges').value) || 0;
+  const gst = parseFloat(document.getElementById('priceGst').value) || 0;
+  const errEl=document.getElementById('pricingFormErr'); if(errEl){ errEl.classList.remove('show'); errEl.textContent=''; }
+  if(!Number.isFinite(goldPrice) || !Number.isFinite(silverPrice) || goldPrice<=0 || silverPrice<=0){ if(errEl){ errEl.textContent='Enter valid gold and silver prices.'; errEl.classList.add('show'); } return; }
+  const btn=document.getElementById('savePricingBtn'); if(btn){ btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i> Saving…'; }
   try{
     await db.collection('settings').doc('pricing').set({
       goldPrice, silverPrice, makingCharges, gst,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     globalPricing = { goldPrice, silverPrice, makingCharges, gst };
-    showToast('Pricing settings saved.');
+    if(updateProducts){
+      await updateAllProductsPricing(goldPrice, silverPrice, makingCharges, gst);
+      showToast(`✅ Live rates saved & all products updated!`);
+    } else {
+      showToast('Pricing settings saved.');
+    }
     applyPricingToProductForm();
-  }catch(err){ console.error('Failed to save pricing settings', err); errEl.textContent='Save failed: '+err.message; errEl.classList.add('show'); }
-  finally{ btn.disabled=false; btn.innerHTML='<i class="fa fa-save"></i> Save Pricing Settings'; }
+  }catch(err){ console.error('Failed to save pricing settings', err); if(errEl){ errEl.textContent='Save failed: '+err.message; errEl.classList.add('show'); } }
+  finally{ if(btn){ btn.disabled=false; btn.innerHTML='<i class="fa fa-save"></i> Save Pricing Settings'; } }
 }
 
 async function updateAllProductsPricing(goldPrice, silverPrice, makingCharges, gst){
@@ -1499,7 +1507,7 @@ async function fetchLiveMarketRates(autoSave = false){
     showToast(`Live rates fetched: Gold 24K ₹${gold24kPerGram}/g · Silver ₹${silverPerGram}/g`);
     
     if(autoSave){
-      await savePricingSettings();
+      await savePricingSettings(true); // true = also update all products
     }
   } catch(err){
     console.error('Error fetching live rates:', err);
@@ -1508,6 +1516,79 @@ async function fetchLiveMarketRates(autoSave = false){
   }
 }
 window.fetchLiveMarketRates = fetchLiveMarketRates;
+
+// ── AUTO RATE FETCH (every 30 min, runs silently in background) ──
+async function autoFetchAndUpdateProducts(){
+  try {
+    const [goldRes, silverRes, inrRes] = await Promise.all([
+      fetch('https://api.gold-api.com/price/XAU').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('https://api.gold-api.com/price/XAG').then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('https://open.er-api.com/v6/latest/USD').then(r=>r.ok?r.json():null).catch(()=>null)
+    ]);
+    const usdInr = inrRes?.rates?.INR || 86.8;
+    let gold24k = 0, silverPerGram = 0;
+    if(goldRes?.price){
+      gold24k = Math.round((goldRes.price / 31.1034768) * usdInr * 1.10);
+    }
+    if(silverRes?.price){
+      silverPerGram = Math.round((silverRes.price / 31.1034768) * usdInr * 1.12 * 10) / 10;
+    }
+    if(!gold24k && !silverPerGram) return; // API failed, skip
+
+    const makingCharges = globalPricing?.makingCharges || 0;
+    const gst = globalPricing?.gst || 0;
+
+    // Save to Firestore settings
+    await db.collection('settings').doc('pricing').set({
+      goldPrice: gold24k, silverPrice: silverPerGram, makingCharges, gst,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    globalPricing = { goldPrice: gold24k, silverPrice: silverPerGram, makingCharges, gst };
+
+    // Update all product prices in Firestore
+    await updateAllProductsPricing(gold24k, silverPerGram, makingCharges, gst);
+
+    // Update UI input fields
+    ['priceGold','settingsPriceGold'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=gold24k; });
+    ['priceSilver','settingsPriceSilver'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=silverPerGram; });
+    const gold22k = Math.round(gold24k * 0.916);
+    const d24=document.getElementById('displayRate24k'); if(d24) d24.textContent=`₹${gold24k}/g`;
+    const d22=document.getElementById('displayRate22k'); if(d22) d22.textContent=`₹${gold22k}/g`;
+    const dSil=document.getElementById('displayRateSilver'); if(dSil) dSil.textContent=`₹${silverPerGram}/g`;
+
+    const timeStr = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+    const banner = `<i class="fa fa-circle-check"></i> Auto-updated (${timeStr}): Gold 24K ₹${gold24k}/g (22K ₹${gold22k}/g) · Silver ₹${silverPerGram}/g — All products updated ✅`;
+    ['pricingLiveBanner','settingsRateStatus'].forEach(id=>{
+      const b=document.getElementById(id); if(!b) return;
+      b.style.display='block';
+      b.style.background='rgba(34,197,94,.12)';
+      b.style.color='#4ade80';
+      b.innerHTML=banner;
+    });
+    // Also update the auto-fetch status pill in dashboard
+    const pill=document.getElementById('autoFetchStatusPill');
+    if(pill) pill.innerHTML=`<i class="fa fa-circle" style="color:#22c55e;font-size:.55rem"></i> Live — Last updated ${timeStr}`;
+
+    console.log(`[Auto-Fetch] Rates updated at ${timeStr}: Gold 24K=₹${gold24k}, Silver=₹${silverPerGram}`);
+  } catch(err){
+    console.warn('[Auto-Fetch] Failed to fetch live rates:', err.message);
+  }
+}
+
+function startAutoRateFetch(){
+  if(autoRateFetchInterval) clearInterval(autoRateFetchInterval);
+  // Fetch immediately on login
+  autoFetchAndUpdateProducts();
+  // Then every 30 minutes
+  autoRateFetchInterval = setInterval(autoFetchAndUpdateProducts, 30 * 60 * 1000);
+  console.log('[Auto-Fetch] Live rate auto-refresh started (every 30 min)');
+}
+
+function stopAutoRateFetch(){
+  if(autoRateFetchInterval){ clearInterval(autoRateFetchInterval); autoRateFetchInterval=null; }
+}
+window.startAutoRateFetch=startAutoRateFetch;
+window.stopAutoRateFetch=stopAutoRateFetch;
 
 async function savePricingFromSettings(){
   const g = parseFloat(document.getElementById('settingsPriceGold')?.value);
