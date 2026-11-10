@@ -4,12 +4,38 @@
 let allProducts=[],allOrders=[],editingId=null,deleteTargetId=null,deleteTargetType='product',productSizes=[],unsubProducts=null,unsubActiveUsers=null,unsubOrders=null,globalPricing={goldPrice:0,silverPrice:0,makingCharges:0,gst:0};
 let autoRateFetchInterval=null;
 
+async function checkIsAdmin(email){
+  if(!email) return false;
+  const target = email.toLowerCase().trim();
+  const defaultEmail = (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : 'vicky@manti.com').toLowerCase().trim();
+  if(target === defaultEmail) return true;
+  try {
+    const doc = await db.collection('settings').doc('admin').get();
+    if(doc.exists && doc.data()?.adminEmail){
+      const savedAdmin = doc.data().adminEmail.toLowerCase().trim();
+      if(target === savedAdmin) return true;
+    }
+  } catch(e){
+    console.warn('Could not read admin settings doc:', e);
+  }
+  return false;
+}
+
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('adminDateBadge').textContent = new Date().toLocaleDateString('en-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  auth.onAuthStateChanged(user=>{
-    if(user&&user.email===ADMIN_EMAIL){ showDash(user); }
-    else if(user){ showGateErr('Access denied. Not an admin account.'); auth.signOut(); }
-    else { showGate(); }
+  auth.onAuthStateChanged(async user=>{
+    if(user){
+      const isAdmin = await checkIsAdmin(user.email);
+      if(isAdmin){
+        showDash(user);
+      } else {
+        showGateErr(`Access denied. Account (${user.email}) is not registered as an administrator.`);
+        await auth.signOut();
+        showGate();
+      }
+    } else {
+      showGate();
+    }
   });
   setupLoginForm(); setupTabs(); setupDeleteModal();
   document.getElementById('sizeInp')?.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();addSize();} });
@@ -186,28 +212,55 @@ function applyPricingToProductForm(){
 }
 
 function setupLoginForm(){
+  // Pre-fill email input if empty
+  const gateEmail = document.getElementById('gateEmail');
+  if(gateEmail && !gateEmail.value){
+    gateEmail.value = typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : 'vicky@manti.com';
+  }
+
   document.getElementById('adminLoginForm')?.addEventListener('submit',async e=>{
     e.preventDefault();
-    const email=document.getElementById('gateEmail').value.trim(), pass=document.getElementById('gatePassword').value;
-    const btn=document.getElementById('gateBtn'), errEl=document.getElementById('gate-err');
-    errEl.classList.remove('show');
-    if(email!==ADMIN_EMAIL){ showGateErr('Access denied. Invalid admin email.'); return; }
-    btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i> Verifying…';
-    try{ await auth.signInWithEmailAndPassword(email,pass); }
-    catch(err){
+    const email = (document.getElementById('gateEmail')?.value || '').trim();
+    const pass = document.getElementById('gatePassword')?.value || '';
+    const btn = document.getElementById('gateBtn');
+    const errEl = document.getElementById('gate-err');
+    if(errEl) errEl.classList.remove('show');
+
+    if(!email){
+      showGateErr('Please enter the admin email address.');
+      return;
+    }
+    if(!pass){
+      showGateErr('Please enter your admin password.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Verifying…';
+    try {
+      const cred = await auth.signInWithEmailAndPassword(email, pass);
+      const isAdmin = await checkIsAdmin(cred.user?.email);
+      if(!isAdmin){
+        await auth.signOut();
+        showGateErr(`Access denied: "${cred.user?.email}" is not configured as an admin.`);
+      }
+    } catch(err){
       console.error('Admin login error:', err);
-      const m={
-        'auth/wrong-password':'Incorrect password. Please check and try again.',
-        'auth/user-not-found':'No account found for vicky@manti.com. Create it in Firebase Console → Authentication → Users.',
-        'auth/invalid-credential':'Wrong email or password. Please check and try again.',
-        'auth/invalid-login-credentials':'Wrong email or password. Please check and try again.',
-        'auth/too-many-requests':'Too many failed attempts. Please wait a few minutes and try again.',
-        'auth/operation-not-allowed':'Email/Password sign-in is disabled. Enable it in Firebase Console → Authentication → Sign-in method.',
-        'auth/unauthorized-domain':'This domain is not authorised in Firebase. Add it in Firebase Console → Authentication → Settings → Authorised domains.'
+      const m = {
+        'auth/wrong-password': 'Incorrect password. Please verify and try again.',
+        'auth/user-not-found': `No user found for "${email}". Make sure it is added in Firebase Console → Authentication → Users.`,
+        'auth/invalid-credential': 'Wrong email or password. Please verify your credentials and try again.',
+        'auth/invalid-login-credentials': 'Wrong email or password. Please verify your credentials or reset password in Firebase Console.',
+        'auth/too-many-requests': 'Too many failed login attempts. Please wait 5 minutes before trying again.',
+        'auth/operation-not-allowed': 'Email/Password sign-in is disabled. Enable it in Firebase Console → Authentication → Sign-in method.',
+        'auth/unauthorized-domain': 'This domain is not authorised in Firebase. Add it in Firebase Console → Authentication → Settings → Authorised domains.',
+        'auth/network-request-failed': 'Network connection error. Please check your internet connection.'
       };
       showGateErr(m[err.code] || `Login failed: ${err.message || err.code}`);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-sign-in-alt"></i> Enter Dashboard';
     }
-    finally{ btn.disabled=false; btn.innerHTML='<i class="fa fa-sign-in-alt"></i> Enter Dashboard'; }
   });
 }
 

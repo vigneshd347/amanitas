@@ -194,20 +194,22 @@ const Auth = (() => {
 
   function friendlyErr(code) {
     return {
-      'auth/invalid-email':'Please enter a valid email.',
-      'auth/user-not-found':'No account found.',
-      'auth/wrong-password':'Incorrect password.',
-      'auth/invalid-credential':'Invalid email or password.',
-      'auth/email-already-in-use':'Email already in use.',
-      'auth/weak-password':'Password must be 6+ characters.',
-      'auth/too-many-requests':'Too many attempts. Try later.',
-      'auth/unauthorized-domain':'This domain is not authorized in Firebase settings.',
-      'auth/popup-blocked':'Popup blocked. Please allow popups or use redirect login.',
-      'auth/operation-not-supported-in-this-environment':'This browser does not support popup login; redirect mode is used.',
-      'auth/cancelled-popup-request':'Popup request was cancelled; trying redirect.',
+      'auth/invalid-email':'Please enter a valid email address.',
+      'auth/user-not-found':'No account found with this email.',
+      'auth/wrong-password':'Incorrect password. Please try again.',
+      'auth/invalid-credential':'Wrong email or password.',
+      'auth/invalid-login-credentials':'Wrong email or password. Please verify and try again.',
+      'auth/email-already-in-use':'This email is already in use. Please sign in instead.',
+      'auth/weak-password':'Password must be at least 6 characters.',
+      'auth/too-many-requests':'Too many failed attempts. Please try again in a few minutes.',
+      'auth/network-request-failed':'Network connection issue. Please check your internet.',
+      'auth/unauthorized-domain':'This domain is not authorized in Firebase Console settings.',
+      'auth/popup-blocked':'Popup blocked by browser. Please allow popups or try redirect sign-in.',
+      'auth/operation-not-supported-in-this-environment':'Popup not supported in this browser.',
+      'auth/cancelled-popup-request':'Login popup was closed before finishing.',
       'auth/redirect-cancelled-by-user':'Redirect sign-in was cancelled.',
       'auth/user-disabled':'This user account has been disabled.'
-    }[code] || 'Something went wrong.';
+    }[code] || null;
   }
 
   return { init, getUser, isLoggedIn, openModal, closeModal, logout, setupModal };
