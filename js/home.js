@@ -145,8 +145,8 @@ function pcardHTML(p){
       <h3 class="pcard-name">${esc(p.name)}</h3>
       <p class="pcard-id" style="font-size:.75rem;color:var(--muted);margin:.1rem 0;">Product ID: ${esc(p.productId||p.id)}</p>
       <div class="pcard-meta">
-        <div>Making charge: ${makingPct}% (${formatPrice(makingAmount)})</div>
-        <div>GST (${gst}%): ${formatPrice(gstAmount)}</div>
+        <div>MC: ${makingPct}% · ${formatPrice(makingAmount)}</div>
+        <div>GST ${gst}%: ${formatPrice(gstAmount)}</div>
       </div>
       <div class="pcard-footer">
         <span class="pcard-price">${formatPrice(total)}</span>
