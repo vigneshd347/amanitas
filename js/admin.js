@@ -187,12 +187,13 @@ function setupLoginForm(){
     catch(err){
       console.error('Admin login error:', err);
       const m={
-        'auth/wrong-password':'Incorrect password.',
-        'auth/user-not-found':'User not found. You must create this user in Firebase Console → Authentication → Users.',
-        'auth/invalid-credential':'Invalid credentials. Check email and password.',
-        'auth/too-many-requests':'Too many attempts. Try again later.',
-        'auth/operation-not-allowed':'Email/Password sign-in is disabled in Firebase Console → Authentication → Sign-in method.',
-        'auth/unauthorized-domain':'Domain not authorized. Please run on http://localhost:3000 (not file://).'
+        'auth/wrong-password':'Incorrect password. Please check and try again.',
+        'auth/user-not-found':'No account found for vicky@manti.com. Create it in Firebase Console → Authentication → Users.',
+        'auth/invalid-credential':'Wrong email or password. Please check and try again.',
+        'auth/invalid-login-credentials':'Wrong email or password. Please check and try again.',
+        'auth/too-many-requests':'Too many failed attempts. Please wait a few minutes and try again.',
+        'auth/operation-not-allowed':'Email/Password sign-in is disabled. Enable it in Firebase Console → Authentication → Sign-in method.',
+        'auth/unauthorized-domain':'This domain is not authorised in Firebase. Add it in Firebase Console → Authentication → Settings → Authorised domains.'
       };
       showGateErr(m[err.code] || `Login failed: ${err.message || err.code}`);
     }
