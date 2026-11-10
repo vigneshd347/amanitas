@@ -126,14 +126,19 @@ function renderProducts(){
 
 function pcardHTML(p){
   const wished=Cart.isWished(p.id); const inStock=p.inStock!==false;
-  const weight = p.weight || 1;
-  const goldRate = p.price || 0;
-  const price = goldRate * weight;
-  const makingPct = p.makingCharges || 0;
-  const makingAmount = price * makingPct / 100; // making based on gold value
-  const gst = p.gst || 0;
-  const gstAmount = price * gst / 100; // GST only on gold value
-  const total = price + makingAmount + gstAmount;
+  const weight = Number(p.weight) || 1;
+  const pricePerGram = Number(p.price) || 0;
+  const mcVal = Number(p.makingCharges) || 0;
+  const mcType = p.mcType || 'percent';
+  const mcPerGram = mcType === 'amount' ? mcVal : (pricePerGram * mcVal / 100);
+  const base = pricePerGram * weight;
+  const makingAmount = mcPerGram * weight;
+  const subtotal = (pricePerGram + mcPerGram) * weight;
+  const gst = Number(p.gst) || 0;
+  const gstAmount = subtotal * gst / 100;
+  const total = subtotal + gstAmount;
+  const mcLabel = mcType === 'amount' ? `₹${mcVal}/g` : `${mcVal}%`;
+
   return`<div class="pcard" data-id="${esc(p.id)}">
     <div class="pcard-img">
       <img src="${esc(p.imageUrl)}" alt="${esc(p.name)}" loading="lazy" onerror="this.src='https://placehold.co/400x400/f5f3f0/999?text=No+Image'"/>
@@ -144,12 +149,20 @@ function pcardHTML(p){
       <p class="pcard-cat">${esc(catLabel(p.category))}${p.purity?` · ${esc(p.purity)}`:''}${p.weight?` · ${p.weight}g`:''}</p>
       <h3 class="pcard-name">${esc(p.name)}</h3>
       <p class="pcard-id" style="font-size:.75rem;color:var(--muted);margin:.1rem 0;">Product ID: ${esc(p.productId||p.id)}</p>
-      <div class="pcard-meta">
-        <div>MC: ${makingPct}% · ${formatPrice(makingAmount)}</div>
-        <div>GST ${gst}%: ${formatPrice(gstAmount)}</div>
-      </div>
       <div class="pcard-footer">
-        <span class="pcard-price">${formatPrice(total)}</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="pcard-price">${formatPrice(total)}</span>
+          <span class="price-info-trigger" onclick="event.stopPropagation();" title="Price breakdown">
+            <i class="fa fa-info-circle"></i>
+            <span class="price-tooltip">
+              <span class="pt-row"><span>Base (${weight}g):</span> <span>${formatPrice(base)}</span></span>
+              <span class="pt-row"><span>Making (${mcLabel}):</span> <span>${formatPrice(makingAmount)}</span></span>
+              <span class="pt-row"><span>GST (${gst}%):</span> <span>${formatPrice(gstAmount)}</span></span>
+              <span class="pt-divider"></span>
+              <span class="pt-row pt-total"><span>Total:</span> <span>${formatPrice(total)}</span></span>
+            </span>
+          </span>
+        </div>
         <div style="display:flex;gap:6px;">
           <button class="pcard-add" ${!inStock?'disabled':''} style="flex:1;">
             <i class="fa fa-plus"></i> Add to Cart
