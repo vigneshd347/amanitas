@@ -893,6 +893,10 @@ function editProduct(id){
   document.getElementById('pMakingCharges').value=savedMaking;
   const mcTypeEl = document.getElementById('pMcType');
   if(mcTypeEl) mcTypeEl.value = p.mcType || 'percent';
+  const savedDiscount = Number(p.discount || 0);
+  document.getElementById('pDiscount').value = savedDiscount || '';
+  const discTypeEl = document.getElementById('pDiscountType');
+  if(discTypeEl) discTypeEl.value = p.discountType || 'percent';
   document.getElementById('pGst').value=p.gst||'';
   document.getElementById('pWeight').value=p.weight||'';
   document.getElementById('pCat').value=p.category||'';
@@ -934,6 +938,8 @@ async function saveProduct(){
   let price = rawPrice;
   const mcType = document.getElementById('pMcType')?.value || 'percent';
   const makingCharges = formMakingPct;
+  const discountVal = parseFloat(document.getElementById('pDiscount')?.value) || 0;
+  const discountType = document.getElementById('pDiscountType')?.value || 'percent';
   const gst = formGst;
   const errEl=document.getElementById('formErr'); errEl.classList.remove('show');
 
@@ -945,7 +951,7 @@ async function saveProduct(){
   if(!finalProductId){errEl.textContent='Product ID generation failed. Please retry.';errEl.classList.add('show');return;}
   const btn=document.getElementById('saveBtn'); btn.disabled=true;
   document.getElementById('saveTxt').textContent='Saving…';
-  const data={name,price,makingCharges,mcType,gst,weight,purity,category:cat,inStock,imageUrl,description:desc,hasSizes,availableSizes:hasSizes?productSizes:[],productId:finalProductId,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  const data={name,price,makingCharges,mcType,discount:discountVal,discountType,gst,weight,purity,category:cat,inStock,imageUrl,description:desc,hasSizes,availableSizes:hasSizes?productSizes:[],productId:finalProductId,updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
   try{
     if(editingId){ await db.collection('products').doc(editingId).update(data); showToast('Product updated! ✓'); }
     else{
@@ -961,9 +967,10 @@ async function saveProduct(){
 
 function resetForm(){
   editingId=null; productSizes=[];
-  ['pName','pPrice','pMakingCharges','pGst','pWeight','pDesc','pUrl','pId','editId'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['pName','pPrice','pMakingCharges','pDiscount','pGst','pWeight','pDesc','pUrl','pId','editId'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   document.getElementById('pCat').value=''; document.getElementById('pPurity').value=''; document.getElementById('pStock').value='true'; document.getElementById('pHasSizes').value='false';
   const mcType = document.getElementById('pMcType'); if(mcType) mcType.value = 'percent';
+  const discType = document.getElementById('pDiscountType'); if(discType) discType.value = 'percent';
   document.getElementById('formTitle').innerHTML='<i class="fa fa-plus-circle" style="color:var(--gold2)"></i> Add New Product';
   document.getElementById('saveTxt').textContent='Save Product';
   document.getElementById('formErr').classList.remove('show');
@@ -973,6 +980,8 @@ function resetForm(){
   document.getElementById('liveName').textContent='Product Name';
   document.getElementById('livePrice').textContent='₹0';
   document.getElementById('liveCat').textContent='Category';
+  const lbDiscRow = document.getElementById('lbDiscountRow'); if(lbDiscRow) lbDiscRow.style.display='none';
+  const lbRoundRow = document.getElementById('lbRoundOffRow'); if(lbRoundRow) lbRoundRow.style.display='none';
   toggleSizeMgr(); renderSizeTags();
 }
 
@@ -993,23 +1002,63 @@ function livePreview(){
   const price=parseFloat(document.getElementById('pPrice')?.value)||0;
   const mcVal=parseFloat(document.getElementById('pMakingCharges')?.value)||0;
   const mcType=document.getElementById('pMcType')?.value||'percent';
+  const discountVal=parseFloat(document.getElementById('pDiscount')?.value)||0;
+  const discountType=document.getElementById('pDiscountType')?.value||'percent';
   const gst=parseFloat(document.getElementById('pGst')?.value)||0;
   const weight=parseFloat(document.getElementById('pWeight')?.value)||0;
   const purity=document.getElementById('pPurity')?.value||'';
+
+  const base = price * weight;
   // MC per gram: if %, it's mc% of price; if ₹ amount, it's flat per gram
   const mcPerGram = mcType === 'amount' ? mcVal : (price * mcVal / 100);
-  const subtotal = (price + mcPerGram) * weight;
-  const gstAmount = subtotal * gst / 100;
-  const total = subtotal + gstAmount;
+  const makingAmount = mcPerGram * weight;
+  const subtotal = base + makingAmount;
+
+  // Discount calculation
+  const discountAmt = discountType === 'amount' ? discountVal : (subtotal * discountVal / 100);
+  const taxableAmount = Math.max(0, subtotal - discountAmt);
+  const gstAmount = taxableAmount * gst / 100;
+  const rawTotal = taxableAmount + gstAmount;
+  // Total round off to nearest rupee
+  const total = Math.round(rawTotal);
+  const roundOff = Math.round((total - rawTotal) * 100) / 100;
+
   const cat=document.getElementById('pCat')?.value||'category';
   document.getElementById('liveName').textContent=name||'Product Name';
   document.getElementById('livePrice').textContent=total?formatPrice(total):'₹0';
   document.getElementById('liveCat').textContent=(catLabel(cat)||'Category') + (purity?` · ${purity}`:'') + (weight?` · ${weight}g`:'');
+
+  // Live breakdown elements
+  const lbBase = document.getElementById('lbBase'); if(lbBase) lbBase.textContent = formatPrice(base);
+  const lbMaking = document.getElementById('lbMaking'); if(lbMaking) lbMaking.textContent = formatPrice(makingAmount);
+  const lbDiscRow = document.getElementById('lbDiscountRow');
+  const lbDiscount = document.getElementById('lbDiscount');
+  if(lbDiscRow && lbDiscount){
+    if(discountAmt > 0){
+      lbDiscRow.style.display = 'flex';
+      const dLbl = discountType === 'amount' ? `₹${discountVal}` : `${discountVal}%`;
+      lbDiscount.textContent = `−${formatPrice(discountAmt)} (${dLbl})`;
+    } else {
+      lbDiscRow.style.display = 'none';
+    }
+  }
+  const lbGst = document.getElementById('lbGst'); if(lbGst) lbGst.textContent = formatPrice(gstAmount);
+  const lbRoundRow = document.getElementById('lbRoundOffRow');
+  const lbRound = document.getElementById('lbRoundOff');
+  if(lbRoundRow && lbRound){
+    if(roundOff !== 0){
+      lbRoundRow.style.display = 'flex';
+      lbRound.textContent = `${roundOff > 0 ? '+' : ''}${formatPrice(roundOff)}`;
+    } else {
+      lbRoundRow.style.display = 'none';
+    }
+  }
+  const lbTotal = document.getElementById('lbTotal'); if(lbTotal) lbTotal.textContent = formatPrice(total);
 }
 window.livePreview=livePreview;
 // Attach input listeners after DOM ready
 document.addEventListener('DOMContentLoaded',()=>{
-  ['pName','pPrice','pMakingCharges','pGst','pWeight','pCat'].forEach(id=>document.getElementById(id)?.addEventListener('input',livePreview));
+  ['pName','pPrice','pMakingCharges','pDiscount','pGst','pWeight','pCat'].forEach(id=>document.getElementById(id)?.addEventListener('input',livePreview));
 });
 
 // ── SIZES ─────────────────────────────────────────────────────

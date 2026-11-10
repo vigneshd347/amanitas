@@ -188,7 +188,7 @@ function renderCart(items){
   const content=document.getElementById('cartContent');
   if(!currentUser){ content.innerHTML=`<div class="empty-state"><i class="fa fa-lock"></i><h3>Sign In to View Cart</h3><p>Your cart is saved across devices when you sign in.</p><button class="btn btn-primary mt-16" onclick="Auth.openModal()">Sign In</button></div>`; return; }
   if(items.length===0){ content.innerHTML=`<div class="empty-state"><i class="fa fa-shopping-bag"></i><h3>Your cart is empty</h3><p>Add some beautiful jewellery to get started!</p><a href="collections.html" class="btn btn-primary mt-16"><i class="fa fa-gem"></i> Browse Collection</a></div>`; return; }
-  const sub=Cart.getTotal(), disc=Math.round(sub*discountPct), total=sub-disc;
+  const sub=Cart.getTotal(), disc=Math.round(sub*discountPct), rawTotal=sub-disc, total=Math.round(rawTotal), roundOff=Math.round((total-rawTotal)*100)/100;
   content.innerHTML=`<div class="cart-grid">
     <div id="cartItems">${items.map(i=>`
       <div class="cart-item-card">
@@ -217,6 +217,7 @@ function renderCart(items){
       <div class="sum-row"><span>Subtotal (${items.length} items)</span><span>${formatPrice(sub)}</span></div>
       <div class="sum-row"><span>Shipping</span><span class="green">Free</span></div>
       ${disc>0?`<div class="sum-row"><span>Discount (${discountPct*100}%)</span><span style="color:var(--red)">−${formatPrice(disc)}</span></div>`:''}
+      ${roundOff!==0?`<div class="sum-row" style="color:var(--muted)"><span>Round Off</span><span>${roundOff>0?'+':''}${formatPrice(roundOff)}</span></div>`:''}
       <div class="sum-row total"><span>Total Amount</span><span>${formatPrice(total)}</span></div>
       <button class="btn-whatsapp full" onclick="openWaModal()">
         <i class="fa fa-check" style="font-size:1.2rem"></i> Confirm Order

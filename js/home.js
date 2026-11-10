@@ -130,14 +130,24 @@ function pcardHTML(p){
   const pricePerGram = Number(p.price) || 0;
   const mcVal = Number(p.makingCharges) || 0;
   const mcType = p.mcType || 'percent';
-  const mcPerGram = mcType === 'amount' ? mcVal : (pricePerGram * mcVal / 100);
-  const base = pricePerGram * weight;
-  const makingAmount = mcPerGram * weight;
-  const subtotal = (pricePerGram + mcPerGram) * weight;
+  const discountVal = Number(p.discount) || 0;
+  const discountType = p.discountType || 'percent';
   const gst = Number(p.gst) || 0;
-  const gstAmount = subtotal * gst / 100;
-  const total = subtotal + gstAmount;
+
+  const base = pricePerGram * weight;
+  const mcPerGram = mcType === 'amount' ? mcVal : (pricePerGram * mcVal / 100);
+  const makingAmount = mcPerGram * weight;
+  const subtotal = base + makingAmount;
+
+  const discountAmt = discountType === 'amount' ? discountVal : (subtotal * discountVal / 100);
+  const taxableAmount = Math.max(0, subtotal - discountAmt);
+  const gstAmount = taxableAmount * gst / 100;
+  const rawTotal = taxableAmount + gstAmount;
+  const total = Math.round(rawTotal);
+  const roundOff = Math.round((total - rawTotal) * 100) / 100;
+
   const mcLabel = mcType === 'amount' ? `₹${mcVal}/g` : `${mcVal}%`;
+  const discLabel = discountType === 'amount' ? `₹${discountVal}` : `${discountVal}%`;
 
   return`<div class="pcard" data-id="${esc(p.id)}">
     <div class="pcard-img">
@@ -157,7 +167,9 @@ function pcardHTML(p){
             <span class="price-tooltip">
               <span class="pt-row"><span>Base (${weight}g):</span> <span>${formatPrice(base)}</span></span>
               <span class="pt-row"><span>Making (${mcLabel}):</span> <span>${formatPrice(makingAmount)}</span></span>
+              ${discountAmt > 0 ? `<span class="pt-row" style="color:#fc8181"><span>Discount (${discLabel}):</span> <span>−${formatPrice(discountAmt)}</span></span>` : ''}
               <span class="pt-row"><span>GST (${gst}%):</span> <span>${formatPrice(gstAmount)}</span></span>
+              ${roundOff !== 0 ? `<span class="pt-row"><span>Round Off:</span> <span>${roundOff > 0 ? '+' : ''}${formatPrice(roundOff)}</span></span>` : ''}
               <span class="pt-divider"></span>
               <span class="pt-row pt-total"><span>Total:</span> <span>${formatPrice(total)}</span></span>
             </span>

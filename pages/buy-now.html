@@ -777,16 +777,31 @@ async function loadProduct(id) {
 }
 
 function calcPricing() {
-  const weight = product.weight || 1;
-  const goldRate = product.price || 0;  // per gram
-  const base = goldRate * weight;        // gold value
-  const makingPct = product.makingCharges || 0;
-  const making = base * makingPct / 100; // making based on gold value
-  const gst = product.gst || 0;
-  const gstAmt = base * gst / 100;      // gst on gold value
-  const unitTotal = base + making + gstAmt;
+  const weight = Number(product.weight) || 1;
+  const pricePerGram = Number(product.price) || 0;
+  const mcVal = Number(product.makingCharges) || 0;
+  const mcType = product.mcType || 'percent';
+  const discountVal = Number(product.discount) || 0;
+  const discountType = product.discountType || 'percent';
+  const gst = Number(product.gst) || 0;
+
+  const base = pricePerGram * weight;
+  const mcPerGram = mcType === 'amount' ? mcVal : (pricePerGram * mcVal / 100);
+  const making = mcPerGram * weight;
+  const subtotal = base + making;
+
+  const discountAmt = discountType === 'amount' ? discountVal : (subtotal * discountVal / 100);
+  const taxableAmount = Math.max(0, subtotal - discountAmt);
+  const gstAmt = taxableAmount * gst / 100;
+  const rawUnitTotal = taxableAmount + gstAmt;
+  const unitTotal = Math.round(rawUnitTotal);
+  const roundOff = Math.round((unitTotal - rawUnitTotal) * 100) / 100;
   const grandTotal = unitTotal * quantity;
-  return { base, makingPct, making, gst, gstAmt, unitTotal, grandTotal };
+
+  const mcLabel = mcType === 'amount' ? `₹${mcVal}/g` : `${mcVal}%`;
+  const discLabel = discountType === 'amount' ? `₹${discountVal}` : `${discountVal}%`;
+
+  return { base, mcType, mcVal, mcLabel, making, discountVal, discountType, discLabel, discountAmt, gst, gstAmt, roundOff, unitTotal, grandTotal };
 }
 
 function renderPage() {
@@ -863,9 +878,11 @@ function renderPage() {
       <div style="padding:16px 24px;border-top:1px solid var(--border)">
         <p style="font-size:.8rem;font-weight:600;color:var(--silver);margin-bottom:10px;letter-spacing:.04em">PRICE BREAKDOWN</p>
         <div class="bn-price-breakdown">
-          <div class="bn-price-row"><span>Base Price</span><span>${formatPrice(pricing.base)}</span></div>
-          <div class="bn-price-row"><span>Making Charges</span><span>${formatPrice(pricing.making)}</span></div>
+          <div class="bn-price-row"><span>Base Price (${product.weight||1}g)</span><span>${formatPrice(pricing.base)}</span></div>
+          <div class="bn-price-row"><span>Making Charges (${pricing.mcLabel})</span><span>${formatPrice(pricing.making)}</span></div>
+          ${pricing.discountAmt > 0 ? `<div class="bn-price-row" style="color:var(--red)"><span>Discount (${pricing.discLabel})</span><span>−${formatPrice(pricing.discountAmt)}</span></div>` : ''}
           <div class="bn-price-row"><span>GST (${pricing.gst}%)</span><span>${formatPrice(pricing.gstAmt)}</span></div>
+          ${pricing.roundOff !== 0 ? `<div class="bn-price-row" style="color:var(--muted)"><span>Round Off</span><span>${pricing.roundOff > 0 ? '+' : ''}${formatPrice(pricing.roundOff)}</span></div>` : ''}
           ${quantity > 1 ? `<div class="bn-price-row"><span>Qty × ${quantity}</span><span>${formatPrice(pricing.unitTotal)} × ${quantity}</span></div>` : ''}
           <div class="bn-price-row total"><span>Total Amount</span><span>${formatPrice(pricing.grandTotal)}</span></div>
         </div>
