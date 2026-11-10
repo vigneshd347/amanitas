@@ -95,7 +95,7 @@ function loadPricingSettings(){
     };
     document.getElementById('priceGold').value = globalPricing.goldPrice || '';
     document.getElementById('priceSilver').value = globalPricing.silverPrice || '';
-    document.getElementById('priceMakingCharges').value = globalPricing.makingCharges || '';
+    document.getElementById('priceMakingCharges').value = ''; // MC disabled in Pricing Settings
     document.getElementById('priceGst').value = globalPricing.gst || '';
     applyPricingToProductForm();
   }).catch(err=>{ console.error('Failed to load pricing settings', err); });
@@ -1618,7 +1618,7 @@ function loadAdminSettingsTab(){
   if(globalPricing){
     const sg = document.getElementById('settingsPriceGold'); if(sg && !sg.value) sg.value = globalPricing.goldPrice || '';
     const ss = document.getElementById('settingsPriceSilver'); if(ss && !ss.value) ss.value = globalPricing.silverPrice || '';
-    const sm = document.getElementById('settingsPriceMaking'); if(sm && !sm.value) sm.value = globalPricing.makingCharges || '';
+    const sm = document.getElementById('settingsPriceMaking'); if(sm) sm.value = ''; // MC disabled
     const sgst = document.getElementById('settingsPriceGst'); if(sgst && !sgst.value) sgst.value = globalPricing.gst || '';
     
     const d24 = document.getElementById('displayRate24k'); if(d24 && globalPricing.goldPrice) d24.textContent = `₹${globalPricing.goldPrice}/g`;
