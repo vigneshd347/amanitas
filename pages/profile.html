@@ -372,7 +372,26 @@ async function loadOrderHistory(user){
       container.innerHTML = `<div class="order-history-empty">No orders found yet.</div>`;
       return;
     }
-    container.innerHTML = `<div class="order-history-list">${orders.map(order=>{
+    const trackerWidget = `
+      <div style="background:#161618;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px 18px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          <div style="width:38px;height:38px;border-radius:10px;background:rgba(212,175,55,.12);display:flex;align-items:center;justify-content:center;color:var(--gold2);font-size:1.15rem;flex-shrink:0">
+            <i class="fa fa-truck-fast"></i>
+          </div>
+          <div>
+            <h4 style="margin:0;font-size:.95rem;color:#fff;font-weight:600">Track Delhivery Shipment</h4>
+            <p style="margin:0;font-size:.76rem;color:var(--muted)">Enter your Delhivery Waybill / AWB number to track in real time</p>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="delhiverySearchInp" placeholder="Enter Delhivery AWB (e.g. 1423871928371)" style="flex:1;background:#0d0d0f;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:9px 12px;color:#fff;font-family:monospace;font-size:.85rem;letter-spacing:.05em" onkeydown="if(event.key==='Enter')trackFromSearchInput()"/>
+          <button type="button" class="btn btn-primary" onclick="trackFromSearchInput()" style="white-space:nowrap;padding:9px 16px;font-size:.82rem">
+            <i class="fa fa-location-arrow"></i> Track
+          </button>
+        </div>
+      </div>`;
+
+    container.innerHTML = trackerWidget + `<div class="order-history-list">${orders.map(order=>{
       const placed = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'}) : 'N/A';
       const total = order.total ?? order.grandTotal ?? 0;
       const currentKey = (order.status||'pending').toString().trim().toLowerCase();
@@ -424,6 +443,18 @@ async function loadOrderHistory(user){
               <div class="order-history-row"><span>Placed</span><span>${esc(placed)}</span></div>
               <div class="order-history-row"><span>Total</span><span>₹${esc(total)}</span></div>
               ${dispatchDateRow}
+              ${(order.trackingNumber || order.awb) ? `
+              <div class="order-history-row" style="background:rgba(212,175,55,.08);padding:10px 12px;border-radius:10px;border:1px solid rgba(212,175,55,.2);margin:8px 0;align-items:center">
+                <span style="color:var(--gold2);font-weight:600"><i class="fa fa-truck-fast"></i> Delhivery Tracking:</span>
+                <span style="text-align:right">
+                  <strong style="font-family:monospace;font-size:.9rem;letter-spacing:.05em;color:#fff">${esc(order.trackingNumber || order.awb)}</strong>
+                  <br/>
+                  <button type="button" class="btn btn-primary btn-sm" style="margin-top:6px;font-size:.74rem;padding:5px 12px;gap:5px" onclick="openLiveDelhiveryModal('${esc(order.trackingNumber || order.awb)}')">
+                    <i class="fa fa-location-arrow"></i> Track Live Package
+                  </button>
+                </span>
+              </div>
+              ` : ''}
               ${renderOrderTimeline(order)}
             </div>
           </div>
@@ -437,7 +468,65 @@ async function loadOrderHistory(user){
 }
 
 window.doLogout=doLogout;
+
+// ── DELHIVERY LIVE TRACKING ─────────────────────────────────
+function openLiveDelhiveryModal(awb){
+  if(!awb){ showToast('Tracking number not available.', 'err'); return; }
+  const cleanAwb = awb.toString().trim();
+  const modal = document.getElementById('delhiveryTrackingModal');
+  const disp = document.getElementById('modalAwbDisplay');
+  const directLink = document.getElementById('modalDirectDelhiveryLink');
+  const frame = document.getElementById('delhiveryFrame');
+  const fallbackNotice = document.getElementById('delhiveryFrameNotice');
+
+  if(disp) disp.textContent = cleanAwb;
+  const trackUrl = `https://www.delhivery.com/track/package/${encodeURIComponent(cleanAwb)}`;
+  if(directLink) directLink.href = trackUrl;
+  if(frame) frame.src = trackUrl;
+
+  if(modal) modal.classList.add('show');
+}
+window.openLiveDelhiveryModal = openLiveDelhiveryModal;
+
+function trackFromSearchInput(){
+  const inp = document.getElementById('delhiverySearchInp');
+  const awb = inp ? inp.value.trim() : '';
+  if(!awb){
+    showToast('Please enter a valid Delhivery AWB number.', 'err');
+    if(inp) inp.focus();
+    return;
+  }
+  openLiveDelhiveryModal(awb);
+}
+window.trackFromSearchInput = trackFromSearchInput;
 </script>
+
+<!-- Live Delhivery Tracking Modal -->
+<div class="modal-overlay" id="delhiveryTrackingModal" onclick="if(event.target===this) this.classList.remove('show')">
+  <div class="modal-box" style="max-width:760px;width:95vw;padding:22px;background:#141417;border:1px solid rgba(255,255,255,.12);border-radius:16px;">
+    <button class="modal-close" onclick="document.getElementById('delhiveryTrackingModal').classList.remove('show')"><i class="fa fa-xmark"></i></button>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:12px;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:8px;background:rgba(212,175,55,.12);display:flex;align-items:center;justify-content:center;color:var(--gold2);font-size:1.1rem">
+          <i class="fa fa-truck-fast"></i>
+        </div>
+        <div>
+          <h3 style="margin:0;font-size:1.05rem;color:#fff;font-family:var(--f1)">Delhivery Live Tracking</h3>
+          <p style="margin:0;font-size:.78rem;color:var(--muted)">AWB: <strong id="modalAwbDisplay" style="font-family:monospace;color:var(--gold2)"></strong></p>
+        </div>
+      </div>
+      <a id="modalDirectDelhiveryLink" href="#" target="_blank" class="btn btn-outline btn-sm" style="font-size:.78rem;padding:6px 14px;gap:6px;border-color:var(--gold2);color:var(--gold2)">
+        Open on Delhivery.com <i class="fa fa-external-link-alt" style="font-size:.68rem"></i>
+      </a>
+    </div>
+    <div style="width:100%;height:490px;border-radius:10px;overflow:hidden;background:#fff;border:1px solid rgba(255,255,255,.1);position:relative">
+      <iframe id="delhiveryFrame" src="" style="width:100%;height:100%;border:none;"></iframe>
+    </div>
+    <p style="margin-top:10px;font-size:.72rem;color:var(--muted);text-align:center">
+      <i class="fa fa-shield-halved"></i> Live tracking data directly powered by Delhivery Logistics. If preview is blocked by browser, click <strong>Open on Delhivery.com</strong> above.
+    </p>
+  </div>
+</div>
 </body>
 </html>
 

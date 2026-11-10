@@ -737,6 +737,16 @@ function showOrderDetails(orderId){
         <div class="order-details-row"><span>Order ID:</span><span>${esc(order.id)}</span></div>
         <div class="order-details-row"><span>Status:</span><span>${esc(getOrderStatusLabel(order.status))}</span></div>
         ${order.dispatchDate?`<div class="order-details-row"><span>Dispatch Date:</span><span>${esc(order.dispatchDate)}</span></div>`:''}
+        ${(order.trackingNumber || order.awb)?`
+        <div class="order-details-row">
+          <span>Delhivery AWB:</span>
+          <span>
+            <strong style="font-family:monospace;color:var(--gold2)">${esc(order.trackingNumber || order.awb)}</strong>
+            <a href="https://www.delhivery.com/track/package/${encodeURIComponent(order.trackingNumber || order.awb)}" target="_blank" class="btn btn-outline btn-sm" style="margin-left:6px;padding:2px 7px;font-size:.68rem">
+              <i class="fa fa-location-arrow"></i> Track
+            </a>
+          </span>
+        </div>`:''}
         <div class="order-details-row"><span>Placed:</span><span>${order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'}) : 'N/A'}</span></div>
         <div class="order-details-row"><span>Items:</span><span>${items.length}</span></div>
         <div class="order-details-row"><span>Grand Total:</span><span>${formatPrice(order.total ?? order.grandTotal ?? totals.line ?? 0)}</span></div>
@@ -797,18 +807,59 @@ async function updateOrderStatus(orderId){
   const select = document.getElementById('statusSelect');
   const dateGroup = document.getElementById('dispatchDateGroup');
   const dateInput = document.getElementById('dispatchDateInput');
+  const awbInput = document.getElementById('delhiveryAwbInput');
+  const delhiveryGroup = document.getElementById('delhiveryGroup');
+
   select.value = normalizeOrderStatus(order.status) || 'confirmed';
   dateInput.value = order.dispatchDate || '';
-  dateGroup.style.display = (select.value==='processing' || select.value==='ready to dispatch') ? 'block' : 'none';
+  if(awbInput) awbInput.value = order.trackingNumber || order.awb || '';
+
+  const isDispatchStatus = (select.value === 'processing' || select.value === 'ready to dispatch');
+  dateGroup.style.display = isDispatchStatus ? 'block' : 'none';
+  if(delhiveryGroup){
+    delhiveryGroup.style.display = (isDispatchStatus || select.value === 'delivered') ? 'block' : 'none';
+  }
+
   document.getElementById('statusModalOrderId').value = orderId;
   modal.classList.add('show');
 }
 
 function toggleDispatchField(status){
   const dateGroup = document.getElementById('dispatchDateGroup');
-  if(!dateGroup) return;
-  dateGroup.style.display = (status==='processing' || status==='ready to dispatch') ? 'block' : 'none';
+  const delhiveryGroup = document.getElementById('delhiveryGroup');
+  const isDispatch = (status==='processing' || status==='ready to dispatch');
+  if(dateGroup) dateGroup.style.display = isDispatch ? 'block' : 'none';
+  if(delhiveryGroup) delhiveryGroup.style.display = (isDispatch || status==='delivered') ? 'block' : 'none';
 }
+
+function copyShippingDetailsForDelhivery(){
+  const orderId = document.getElementById('statusModalOrderId')?.value;
+  const order = allOrders.find(o => o.id === orderId);
+  if(!order){ showToast('Order not found.','err'); return; }
+
+  const name = order.customerName || order.name || 'Customer';
+  const phone = order.phone || '';
+  const addr = order.address || '';
+  const total = order.total ?? order.grandTotal ?? 0;
+  const items = Array.isArray(order.items) ? order.items : [];
+  const totalGrams = items.reduce((acc, i) => acc + (Number(i.weight) || 0) * (i.quantity || 1), 0);
+
+  const textToCopy = `DELHIVERY SHIPPING DETAILS
+Name: ${name}
+Phone: ${phone}
+Address: ${addr}
+Order ID: #${order.id.slice(-8)}
+Approx Weight: ${totalGrams || 1} grams
+Order Total Value: ₹${total}
+Items: ${items.map(i => `${i.name} (Qty: ${i.quantity || 1})`).join(', ')}`;
+
+  navigator.clipboard.writeText(textToCopy).then(() => {
+    showToast('Customer shipping details copied! Paste in Delhivery One ✓');
+  }).catch(() => {
+    showToast('Failed to copy. Please copy manually.', 'err');
+  });
+}
+window.copyShippingDetailsForDelhivery = copyShippingDetailsForDelhivery;
 
 async function submitOrderStatusUpdate(){
   const orderId = document.getElementById('statusModalOrderId').value;
@@ -823,6 +874,20 @@ async function submitOrderStatusUpdate(){
   } else {
     updates.dispatchDate = firebase.firestore.FieldValue.delete();
   }
+
+  // Delhivery AWB number update
+  const awb = document.getElementById('delhiveryAwbInput')?.value.trim();
+  if(awb){
+    updates.trackingNumber = awb;
+    updates.awb = awb;
+    updates.courier = 'Delhivery';
+    updates.trackingUrl = `https://www.delhivery.com/track/package/${encodeURIComponent(awb)}`;
+  } else if (status === 'cancelled') {
+    updates.trackingNumber = firebase.firestore.FieldValue.delete();
+    updates.awb = firebase.firestore.FieldValue.delete();
+    updates.trackingUrl = firebase.firestore.FieldValue.delete();
+  }
+
   try{
     await db.collection('orders').doc(orderId).update(updates);
     
@@ -837,10 +902,15 @@ async function submitOrderStatusUpdate(){
         'delivered': 'Order Delivered ✨',
         'cancelled': 'Order Cancelled ❌'
       };
-      const title = statusTitleMap[status] || `Order Update: ${getOrderStatusLabel(status)}`;
-      const message = status === 'ready to dispatch' && updates.dispatchDate
+      let title = statusTitleMap[status] || `Order Update: ${getOrderStatusLabel(status)}`;
+      let message = status === 'ready to dispatch' && updates.dispatchDate
         ? `Your order #${orderId.slice(-6)} is ready for dispatch (Scheduled: ${updates.dispatchDate}).`
         : `Your order #${orderId.slice(-6)} has been updated to "${getOrderStatusLabel(status)}".`;
+      
+      if(awb){
+        title = `Order Dispatched via Delhivery! 🚚`;
+        message = `Your order #${orderId.slice(-6)} has been dispatched with Delhivery! Tracking Number (AWB): ${awb}`;
+      }
       
       db.collection('notifications').add({
         userId: order.userId,
@@ -849,13 +919,16 @@ async function submitOrderStatusUpdate(){
         message: message,
         status: status,
         dispatchDate: updates.dispatchDate || null,
+        trackingNumber: awb || null,
+        trackingUrl: updates.trackingUrl || null,
+        courier: awb ? 'Delhivery' : null,
         read: false,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       }).catch(e => console.warn('Could not save customer notification:', e));
     }
     
     document.getElementById('statusModal')?.classList.remove('show');
-    showToast(`Order status updated to "${getOrderStatusLabel(status)}" & customer notified.`);
+    showToast(`Order status updated to "${getOrderStatusLabel(status)}"${awb ? ' with Delhivery AWB' : ''} & customer notified.`);
   } catch(err){
     console.error('Failed to update order status:', err);
     showToast('Could not update order status.','err');
