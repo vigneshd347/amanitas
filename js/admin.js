@@ -116,7 +116,7 @@ async function savePricingSettings(updateProducts = false){
     });
     globalPricing = { goldPrice, silverPrice, makingCharges, gst };
     if(updateProducts){
-      await updateAllProductsPricing(goldPrice, silverPrice, makingCharges, gst);
+      await updateAllProductsPricing(goldPrice, silverPrice);
       showToast(`✅ Live rates saved & all products updated!`);
     } else {
       showToast('Pricing settings saved.');
@@ -126,7 +126,7 @@ async function savePricingSettings(updateProducts = false){
   finally{ if(btn){ btn.disabled=false; btn.innerHTML='<i class="fa fa-save"></i> Save Pricing Settings'; } }
 }
 
-async function updateAllProductsPricing(goldPrice, silverPrice, makingCharges, gst){
+async function updateAllProductsPricing(goldPrice, silverPrice){
   const snap = await db.collection('products').get();
   if(snap.empty) return;
   let batch = db.batch();
@@ -134,9 +134,11 @@ async function updateAllProductsPricing(goldPrice, silverPrice, makingCharges, g
   const commits = [];
   snap.docs.forEach(doc=>{
     const data = doc.data();
-    const updates = { makingCharges, gst };
+    const updates = {};
+    // Only update metal price per gram — NEVER touch MC or GST (saved per-product)
     if(data.category==='gold') updates.price = goldPrice;
     else if(data.category==='silver') updates.price = silverPrice;
+    else return; // skip non-metal products
     batch.update(doc.ref, updates);
     opCount += 1;
     if(opCount === 450){ commits.push(batch.commit()); batch = db.batch(); opCount = 0; }
@@ -1547,7 +1549,7 @@ async function autoFetchAndUpdateProducts(){
     globalPricing = { goldPrice: gold24k, silverPrice: silverPerGram, makingCharges, gst };
 
     // Update all product prices in Firestore
-    await updateAllProductsPricing(gold24k, silverPerGram, makingCharges, gst);
+    await updateAllProductsPricing(gold24k, silverPerGram);
 
     // Update UI input fields
     ['priceGold','settingsPriceGold'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=gold24k; });
