@@ -15,13 +15,27 @@ const Cart = (() => {
   function stop() { if(_unsub){_unsub();_unsub=null;} _items=[]; _updateBadge(); }
 
   async function addItem(uid, product, size) {
-    const weight = product.weight || 1;
-    const goldRate = product.price || 0;
-    const base = goldRate * weight;
-    const makingPct = product.makingCharges || 0;
-    const makingAmount = base * makingPct / 100; // making based on gold value
-    const gst = product.gst || 0;
-    const totalPrice = base + makingAmount + (base * gst / 100);
+    const weight = Number(product.weight) || 1;
+    const pricePerGram = Number(product.price) || 0;
+    const mcVal = Number(product.makingCharges) || 0;
+    const mcType = product.mcType || 'percent';
+    const discountVal = Number(product.discount) || 0;
+    const discountType = product.discountType || 'percent';
+    const gst = Number(product.gst) || 0;
+
+    const base = pricePerGram * weight;
+    const mcPerGram = mcType === 'amount' ? mcVal : (pricePerGram * mcVal / 100);
+    const makingAmount = mcPerGram * weight;
+    const subtotal = base + makingAmount;
+
+    const discountAmt = discountType === 'amount' ? discountVal : (subtotal * discountVal / 100);
+    const taxableAmount = Math.max(0, subtotal - discountAmt);
+    const gstAmount = taxableAmount * gst / 100;
+    const rawTotal = taxableAmount + gstAmount;
+    const totalPrice = Math.round(rawTotal);
+    const roundOff = Math.round((totalPrice - rawTotal) * 100) / 100;
+    const mcLabel = mcType === 'amount' ? `₹${mcVal}/g` : `${mcVal}%`;
+
     const ref = db.collection('carts').doc(uid).collection('items').doc(product.id);
     const snap = await ref.get();
     if(snap.exists) { await ref.update({quantity:firebase.firestore.FieldValue.increment(1)}); }
@@ -30,9 +44,17 @@ const Cart = (() => {
       name:product.name,
       price:totalPrice,
       basePrice:base,
-      makingChargesPct:makingPct,
+      mcType:mcType,
+      makingChargesRate:mcVal,
+      makingChargesPct:mcType === 'amount' ? null : mcVal,
       makingCharges:makingAmount,
+      makingLabel:mcLabel,
+      discount:discountAmt,
+      discountRate:discountVal,
+      discountType:discountType,
       gst:gst,
+      gstAmt:gstAmount,
+      roundOff:roundOff,
       weight:product.weight||0,
       purity:product.purity||'',
       category:product.category,

@@ -683,12 +683,20 @@ function showOrderDetails(orderId){
         basePrice = item.basePrice ?? productMatch?.price ?? 0;
       }
     }
-    const makingAmount = item.makingCharges ?? (makingRate !== null ? Math.round(basePrice * makingRate / 100) : 0);
-    const gstAmount = item.gstAmt ?? (gstRate !== null ? Math.round(basePrice * gstRate / 100) : 0);
+    const mcType = item.mcType || productMatch?.mcType || 'percent';
+    const makingAmount = item.makingCharges ?? (makingRate !== null ? (mcType === 'amount' ? Math.round((item.makingChargesRate || makingRate) * (itemWeight || 1)) : Math.round(basePrice * makingRate / 100)) : 0);
+    const gstAmount = item.gstAmt ?? (gstRate !== null ? Math.round((basePrice + makingAmount) * gstRate / 100) : 0);
     const unitTotal = item.unitTotal ?? item.price ?? (basePrice + makingAmount + gstAmount);
     const quantity = item.quantity || 1;
     const lineTotal = item.lineTotal ?? (unitTotal * quantity);
-    const makingText = makingRate !== null ? `${esc(makingRate+'%')} (${formatPrice(makingAmount)})` : formatPrice(makingAmount);
+    let makingText = formatPrice(makingAmount);
+    if (item.makingLabel) {
+      makingText = `${formatPrice(makingAmount)} (${esc(item.makingLabel)})`;
+    } else if (item.mcType === 'amount' || mcType === 'amount') {
+      makingText = `${formatPrice(makingAmount)} (₹${item.makingChargesRate || makingRate || 0}/g)`;
+    } else if (makingRate !== null) {
+      makingText = `${formatPrice(makingAmount)} (${esc(makingRate+'%')})`;
+    }
     const gstText = gstRate !== null ? `${esc(gstRate+'%')} (${formatPrice(gstAmount)})` : formatPrice(gstAmount);
     return {
       name: itemName,
@@ -751,7 +759,7 @@ function showOrderDetails(orderId){
       <h4 style="margin-bottom:10px">Product Details</h4>
       <div class="admin-table-wrap">
         <table class="admin-table" style="font-size:.82rem">
-          <thead><tr><th>Image</th><th>Product</th><th>Product ID</th><th>Grams</th><th>Base Price</th><th>Making Charge (%)</th><th>GST (%)</th><th>Qty</th><th>Line Total</th></tr></thead>
+          <thead><tr><th>Image</th><th>Product</th><th>Product ID</th><th>Grams</th><th>Base Price</th><th>Making Charge</th><th>GST (%)</th><th>Qty</th><th>Line Total</th></tr></thead>
           <tbody>${productRows||'<tr><td colspan="9" style="text-align:center;color:var(--muted)">No items found</td></tr>'}</tbody>
         </table>
       </div>

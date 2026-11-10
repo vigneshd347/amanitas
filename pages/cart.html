@@ -200,7 +200,7 @@ function renderCart(items){
           </div>
           <p class="ci-meta">${catLabel(i.category)}${i.purity?' · '+esc(i.purity):''}${i.weight?' · '+i.weight+'g':''}${i.selectedSize?' · Size '+esc(i.selectedSize):''}</p>
           <p class="ci-meta" style="font-size:.78rem;color:var(--muted)">Product ID: ${esc(i.productId||i.docId||'N/A')}</p>
-          <p class="ci-meta" style="font-size:.78rem;color:var(--muted)">Making: ${i.makingChargesPct||0}% (${formatPrice(i.makingCharges||0)}) <i class="fa fa-info-circle" title="For example, if the making charge is 10% and the gold in your necklace is worth Rs 10,000, the charge will be Rs 1,000." style="cursor:help;color:var(--silver3);font-size:.7rem;margin-left:4px;"></i> · GST: ${i.gst||0}% · Base: ${formatPrice(i.basePrice||0)}</p>
+          <p class="ci-meta" style="font-size:.78rem;color:var(--muted)">Making: ${formatPrice(i.makingCharges||0)}${i.makingLabel ? ` (${esc(i.makingLabel)})` : (i.makingChargesPct ? ` (${esc(i.makingChargesPct)}%)` : '')} · GST: ${i.gst||0}% · Base: ${formatPrice(i.basePrice||0)}</p>
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
             <span class="ci-price">${formatPrice(i.price*(i.quantity||1))}</span>
             <div class="qty-ctrl">
