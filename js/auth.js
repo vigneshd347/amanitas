@@ -114,7 +114,7 @@ const Auth = (() => {
           await auth.signInWithEmailAndPassword(email, pass);
         }
         closeModal();
-        showToast(_isSignup ? 'Welcome to MANTI jewel art! 🎉' : 'Signed in successfully!');
+        showToast(_isSignup ? 'Welcome to Manti jewel art pvt.ltd! 🎉' : 'Signed in successfully!');
         if (_pendingCb) { _pendingCb(); _pendingCb = null; }
       } catch(err) {
         console.error('Email auth sign-in error:', err.code, err.message);
