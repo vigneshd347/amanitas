@@ -139,6 +139,9 @@ function pcardHTML(p){
   const makingAmount = mcPerGram * weight;
   const subtotal = base + makingAmount;
 
+  const originalGst = subtotal * gst / 100;
+  const originalTotal = Math.round(subtotal + originalGst);
+
   const discountAmt = discountType === 'amount' ? discountVal : (subtotal * discountVal / 100);
   const taxableAmount = Math.max(0, subtotal - discountAmt);
   const gstAmount = taxableAmount * gst / 100;
@@ -160,8 +163,12 @@ function pcardHTML(p){
       <h3 class="pcard-name">${esc(p.name)}</h3>
       <p class="pcard-id" style="font-size:.75rem;color:var(--muted);margin:.1rem 0;">Product ID: ${esc(p.productId||p.id)}</p>
       <div class="pcard-footer">
-        <div style="display:flex;align-items:center;gap:6px;">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
           <span class="pcard-price">${formatPrice(total)}</span>
+          ${discountAmt > 0 ? `
+            <span style="text-decoration:line-through;color:var(--muted);font-size:.76rem;">${formatPrice(originalTotal)}</span>
+            <span style="background:rgba(239,68,68,.12);color:#fc8181;font-size:.66rem;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid rgba(239,68,68,.25);letter-spacing:.02em;">${discLabel} OFF</span>
+          ` : ''}
           <span class="price-info-trigger" onclick="event.stopPropagation();" title="Price breakdown">
             <i class="fa fa-info-circle"></i>
             <span class="price-tooltip">

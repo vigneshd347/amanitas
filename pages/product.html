@@ -231,6 +231,9 @@ function renderDetail() {
   const makingAmount = mcPerGram * weight;
   const subtotal = base + makingAmount;
 
+  const originalGst = subtotal * gst / 100;
+  const originalTotal = Math.round(subtotal + originalGst);
+
   const discountAmt = discountType === 'amount' ? discountVal : (subtotal * discountVal / 100);
   const taxableAmount = Math.max(0, subtotal - discountAmt);
   const gstAmount = taxableAmount * gst / 100;
@@ -255,6 +258,10 @@ function renderDetail() {
           ${product.purity ? `<p style="font-size:.88rem;font-weight:600;color:var(--silver3);margin-bottom:12px;">${esc(product.purity)}${weight ? ` · ${weight}g` : ''}</p>` : weight ? `<p style="font-size:.88rem;font-weight:600;color:var(--silver3);margin-bottom:12px;">${weight}g</p>` : ''}
           <p class="detail-price" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
             <span>${formatPrice(total)}</span>
+            ${discountAmt > 0 ? `
+              <span style="text-decoration:line-through;color:var(--muted);font-size:.95rem;font-weight:400">${formatPrice(originalTotal)}</span>
+              <span style="background:rgba(239,68,68,.12);color:#fc8181;font-size:.75rem;font-weight:700;padding:3px 8px;border-radius:5px;border:1px solid rgba(239,68,68,.25)">${discLabel} OFF</span>
+            ` : ''}
             <span class="price-info-trigger" style="width:24px;height:24px;font-size:.85rem;background:var(--surface);border:1px solid var(--border);" title="Price breakdown">
               <i class="fa fa-info-circle" style="color:var(--gold2)"></i>
               <span class="price-tooltip" style="left:0;transform:translateY(4px);min-width:210px;">
