@@ -933,9 +933,9 @@ function livePreview(){
   const gst=parseFloat(document.getElementById('pGst')?.value)||0;
   const weight=parseFloat(document.getElementById('pWeight')?.value)||0;
   const purity=document.getElementById('pPurity')?.value||'';
-  const base = price * weight;
-  const makingAmount = mcType === 'amount' ? mcVal : (base * mcVal / 100);
-  const subtotal = base + makingAmount;
+  // MC per gram: if %, it's mc% of price; if ₹ amount, it's flat per gram
+  const mcPerGram = mcType === 'amount' ? mcVal : (price * mcVal / 100);
+  const subtotal = (price + mcPerGram) * weight;
   const gstAmount = subtotal * gst / 100;
   const total = subtotal + gstAmount;
   const cat=document.getElementById('pCat')?.value||'category';
