@@ -934,8 +934,9 @@ function livePreview(){
   const purity=document.getElementById('pPurity')?.value||'';
   const base = price * weight;
   const makingAmount = mcType === 'amount' ? mcVal : (base * mcVal / 100);
-  const gstAmount = base * gst / 100;
-  const total = base + makingAmount + gstAmount;
+  const subtotal = base + makingAmount;
+  const gstAmount = subtotal * gst / 100;
+  const total = subtotal + gstAmount;
   const cat=document.getElementById('pCat')?.value||'category';
   document.getElementById('liveName').textContent=name||'Product Name';
   document.getElementById('livePrice').textContent=total?formatPrice(total):'₹0';
