@@ -1483,8 +1483,8 @@ async function fetchLiveMarketRates(autoSave = false){
     }
     
     if(silverRes && silverRes.price){
-      const silverPerGramUsd = silverRes.price / 31.1034768;
-      silverPerGram = Math.round(silverPerGramUsd * usdInr * 0.16 * 10) / 10; // (spot/gram × USD-INR) × 16%
+      const silverBase = (silverRes.price / 31.1034768) * usdInr; // spot rate/gram × USD-INR
+      silverPerGram = Math.round((silverBase + silverBase * 0.16) * 10) / 10; // base + 16%
     } else {
       silverPerGram = 96;
     }
@@ -1531,7 +1531,8 @@ async function autoFetchAndUpdateProducts(){
       gold24k = Math.round((goldRes.price / 31.1034768) * usdInr * 1.10);
     }
     if(silverRes?.price){
-      silverPerGram = Math.round((silverRes.price / 31.1034768) * usdInr * 0.16 * 10) / 10; // (spot/gram × USD-INR) × 16%
+      const silverBase = (silverRes.price / 31.1034768) * usdInr; // spot rate/gram × USD-INR
+      silverPerGram = Math.round((silverBase + silverBase * 0.16) * 10) / 10; // base + 16%
     }
     if(!gold24k && !silverPerGram) return; // API failed, skip
 
