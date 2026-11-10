@@ -969,7 +969,21 @@ input, textarea, select { font-family: inherit; }
   margin-bottom: 6px;
   line-height: 1.2;
 }
-.pcard-meta { font-size: .68rem; color: var(--muted); margin-bottom: 8px; }
+.pcard-meta {
+  font-size: .68rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transform: translateY(-6px);
+  transition: opacity .25s ease, max-height .25s ease, transform .25s ease;
+}
+.pcard:hover .pcard-meta {
+  opacity: 1;
+  max-height: 60px;
+  transform: translateY(0);
+}
 .pcard-footer {
   display: flex;
   align-items: center;
@@ -2490,7 +2504,9 @@ select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-dim);
   .pcard-body { padding: 14px 14px 16px; }
   .pcard-name { font-size: 1rem; }
   .pcard-price { font-size: 1.05rem; }
-  .pcard-meta { display: flex; flex-direction: column; gap: 6px; }
+  .pcard-meta { display: flex; flex-direction: column; gap: 4px; }
+  /* On touch devices show meta on tap (card:active) */
+  .pcard:active .pcard-meta { opacity: 1; max-height: 60px; transform: translateY(0); }
   .pcard-footer { flex-direction: column; align-items: stretch; gap: 12px; }
   .pcard-footer > div { width: 100%; display: flex; gap: 10px; flex-wrap: wrap; }
   .pcard-footer .pcard-add,
