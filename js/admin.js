@@ -967,16 +967,28 @@ function confirmDelete(id,type='product'){ deleteTargetId=id; deleteTargetType=t
 window.confirmDelete=confirmDelete;
 
 function setupDeleteModal(){
-  document.getElementById('confirmDelBtn')?.addEventListener('click',async()=>{
+  document.getElementById('confirmDelBtn')?.addEventListener('click',async(e)=>{
     if(!deleteTargetId) return;
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Deleting…';
     try{
       const collectionName = deleteTargetType==='order' ? 'orders' : 'products';
       await db.collection(collectionName).doc(deleteTargetId).delete();
-      showToast(deleteTargetType==='order' ? 'Order deleted.' : 'Product deleted.');
+      showToast(deleteTargetType==='order' ? 'Order deleted.' : 'Product deleted. ✓');
       document.getElementById('deleteModal').classList.remove('show');
       deleteTargetId=null;
       deleteTargetType='product';
-    }catch(e){ showToast('Failed to delete.','err'); }
+    }catch(e){
+      console.error('Delete failed:', e.code, e.message);
+      const msg = e.code === 'permission-denied'
+        ? 'Permission denied. Make sure you are logged in as admin.'
+        : `Delete failed: ${e.message || e.code}`;
+      showToast(msg,'err');
+    }finally{
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-trash"></i> Delete';
+    }
   });
   document.getElementById('deleteModal')?.addEventListener('click',e=>{ if(e.target===e.currentTarget) e.currentTarget.classList.remove('show'); });
 }
